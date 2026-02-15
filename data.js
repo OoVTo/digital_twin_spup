@@ -1,4 +1,4 @@
-window.resumeData = {
+const resumeData = {
   personal: {
     name: "Jacinto Gabriel A. Tong",
     birthDate: "November 25, 2004",
@@ -82,3 +82,13 @@ window.resumeData = {
     "Consistent President’s Lister"
   ]
 };
+
+// Browser compatibility: assign to window
+if (typeof window !== 'undefined') {
+  window.resumeData = resumeData;
+}
+
+// Node.js compatibility: export
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { resumeData };
+}
