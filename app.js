@@ -304,41 +304,15 @@
   }
 
   function evaluateCertificateRelevance(jobDetails) {
-    if (!window.resumeData || !window.resumeData.certifications) return 0.5;
     const jobTitle = (jobDetails.title || '').toLowerCase();
-    const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
-    let relevantCerts = 0;
-    window.resumeData.certifications.forEach(cert => {
-      // Handle both object format (new) and string format (legacy)
-      const certName = typeof cert === 'object' ? (cert.title || cert.desc || '').toLowerCase() : cert.toLowerCase();
-      const certDescription = typeof cert === 'object' ? (cert.desc || '').toLowerCase() : cert.toLowerCase();
-      const certCombined = (certName + ' ' + certDescription).toLowerCase();
-      
-      if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && certCombined.includes('ai')) relevantCerts++;
-      else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && (certCombined.includes('sveltekit') || certCombined.includes('framework'))) relevantCerts++;
-      else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && certCombined.includes('fintech')) relevantCerts++;
-      else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && certCombined.includes('automation')) relevantCerts++;
-      else if ((jobTitle.includes('cybersecurity') || jobSkills.includes('security')) && certCombined.includes('cyber')) relevantCerts++;
-    });
-    const totalCerts = window.resumeData.certifications.length || 32;
-    return Math.min(0.5 + (relevantCerts / totalCerts) * 0.5, 1);
+    const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase());
+    return evaluateCertificateRelevanceDetailed(jobDetails, jobTitle, jobSkills);
   }
 
   function evaluateProjectExperience(jobDetails) {
-    if (!window.resumeData || !window.resumeData.events) return 0.5;
     const jobTitle = (jobDetails.title || '').toLowerCase();
-    const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
-    let relevantEvents = 0;
-    window.resumeData.events.forEach(event => {
-      const eventLower = event.title.toLowerCase();
-      if (eventLower.includes('hackathon')) relevantEvents++;
-      else if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && eventLower.includes('ai')) relevantEvents++;
-      else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && eventLower.includes('automation')) relevantEvents++;
-      else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && eventLower.includes('framework')) relevantEvents++;
-      else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && eventLower.includes('fintech')) relevantEvents++;
-    });
-    const totalEvents = window.resumeData.events.length || 21;
-    return Math.min(0.5 + (relevantEvents / totalEvents) * 0.5, 1);
+    const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase());
+    return evaluateProjectExperienceDetailed(jobDetails, jobTitle, jobSkills);
   }
 
   chatToggle.addEventListener('click', () => { chatPanel.classList.toggle('hidden'); });
@@ -361,7 +335,7 @@
       chatForm.style.display = 'none';
       interviewModePanel.style.display = 'block';
       chatLog.innerHTML = ''; // Clear chat log
-      appendMsg("Welcome to Interview Practice Mode! Select a job position and I'll conduct a mock interview.", 'bot');
+      appendMsg("Interview Practice Mode initiated. Select a position from the list to begin the assessment.", 'bot');
     }
   }
 
@@ -399,48 +373,15 @@
       chatLog.innerHTML = '';
       
       // Display welcome message
-      const welcomeMessage = `Welcome to the ${jobDetails.title} interview! 🎤\n\nCalculating your match score...`;
+      const welcomeMessage = `Interview initiated for position: ${jobDetails.title}\n\nProceeding with technical assessment.`;
       appendMsg(welcomeMessage, 'bot');
       
-      // Animate match score display over 2 seconds
-      const scoreColor = currentMatchScore >= 70 ? '#4CAF50' : currentMatchScore >= 50 ? '#FF9800' : '#f44336';
-      const scoreInterpretation = currentMatchScore >= 85 ? "Excellent Match - Strong Candidate" :
-                                  currentMatchScore >= 70 ? "Good Match - Well Qualified" :
-                                  currentMatchScore >= 55 ? "Moderate Match - Good Foundation" :
-                                  currentMatchScore >= 40 ? "Fair Match - Growth Opportunity" :
-                                  "Entry Level Match - Stretch Role";
-      
-      // Animate score from 0 to final score
-      const startTime = Date.now();
-      const duration = 2000; // 2 seconds
-      
-      const animateScore = () => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const animatedScore = Math.floor(currentMatchScore * progress);
-        
-        // Update the last message with animated score
-        const lastMsg = chatLog.lastChild;
-        if (lastMsg) {
-          lastMsg.textContent = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${animatedScore}% 🔄`;
-        }
-        
-        if (progress < 1) {
-          requestAnimationFrame(animateScore);
-        } else {
-          // Animation complete, show final message with interpretation
-          lastMsg.textContent = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${currentMatchScore}% (${scoreInterpretation})\n\nLet's begin with some interview questions!`;
-          
-          // Start the auto-flow interview with question 1
-          setTimeout(() => {
-            generateInterviewQuestion(jobDetails, 1);
-          }, 1000);
-        }
-      };
-      
-      requestAnimationFrame(animateScore);
+      // Start the auto-flow interview with question 1
+      setTimeout(() => {
+        generateInterviewQuestion(jobDetails, 1);
+      }, 1000);
     } catch (error) {
-      appendMsg("Error loading job details. Please try again.", 'bot');
+      appendMsg("System error: Unable to load position details. Please try again.", 'bot');
       console.error("Error:", error);
     }
   });
@@ -494,114 +435,489 @@
       const qa = window.resumeData;
       const qLower = question.toLowerCase();
       
-      // Helper to get specific certifications details
-      const getCertByKeyword = (keyword) => {
-        if (!qa.certifications || !Array.isArray(qa.certifications)) return 'various technical certifications';
-        const matching = qa.certifications.find(c => {
-          if (typeof c === 'object' && c.desc) {
-            return c.desc.toLowerCase().includes(keyword.toLowerCase());
-          }
-          return false;
-        });
-        return matching ? `${matching.title} (${matching.desc})` : `certifications in ${keyword}`;
-      };
+      // Route to job-specific answer generators based on question content
+      if (/(machine learning|ml|training|model|data|preprocessing)/.test(qLower)) {
+        return generateAIAnswers(qa, question);
+      }
+      if (/(api|rest|design|frontend|component|react|svelte|framework)/.test(qLower)) {
+        return generateFrontendAnswers(qa, question);
+      }
+      if (/(full.?stack|architecture|deploy|database|postgres|mongodb)/.test(qLower)) {
+        return generateFullStackAnswers(qa, question);
+      }
+      if (/(docker|kubernetes|ci.?cd|pipeline|devops|container|infrastructure)/.test(qLower)) {
+        return generateDevOpsAnswers(qa, question);
+      }
+      if (/(test|automation|bug|qa|coverage|quality)/.test(qLower)) {
+        return generateQAAnswers(qa, question);
+      }
+      if (/(security|encryption|compliance|gdpr|cybersecurity|vulnerability)/.test(qLower)) {
+        return generateSecurityAnswers(qa, question);
+      }
+      if (/(maintain|refactor|technical debt|code quality|clean|architecture|mentor)/.test(qLower)) {
+        return generateLeadershipAnswers(qa, question);
+      }
+      if (/(learn|growth|new technology|approach|recent)/.test(qLower)) {
+        return generateLearningAnswers(qa, question);
+      }
       
-      // Helper to get specific event details
-      const getRecentEvent = () => {
-        if (qa.events && qa.events.length > 0) {
-          const evt = qa.events[0];
-          return `${evt.title} where I ${evt.desc || 'contributed to the experience'}`;
-        }
-        return 'various industry events';
-      };
-      
-      // Helper to format skills with proficiency
-      const getSkillsSummary = () => {
-        if (!qa.skills || !qa.skills.programmingLanguages) return 'multiple technologies';
-        const languages = Array.isArray(qa.skills.programmingLanguages) ? qa.skills.programmingLanguages : [];
-        const advanced = languages.filter(l => typeof l === 'object' && l.proficiency === 'Advanced');
-        return advanced.map(l => `${l.lang} (${l.useCases})`).slice(0, 3).join(', ') || 'multiple technologies';
-      };
-      
-      // Helper to safely get affiliation role
-      const getAffiliationInfo = () => {
-        if (!qa.affiliations || qa.affiliations.length === 0) return 'my professional roles';
-        const affil = qa.affiliations[0];
-        if (typeof affil === 'object' && affil.role) {
-          return `${affil.role} at ${affil.organization}`;
-        }
-        return affil;
-      };
-      
-      // Helper to safely get capstone title
-      const getCapstoneTitle = () => {
-        if (!qa.education.capstone) return 'my capstone project';
-        const parts = qa.education.capstone.split(':');
-        return parts.length > 0 ? parts[0].trim() : qa.education.capstone;
-      };
-      
-      const answers = {
-        experience: [
-          `I've gained practical experience through my ${qa.education.degree} at ${qa.education.school}. My capstone project involved ${getCapstoneTitle()}, implementing AI-driven solutions with spatial indexing. I've participated in multiple tech events including ${qa.events[0]?.title}, which provided hands-on exposure to modern development practices. I've undertaken ${getCertByKeyword('AI')} to strengthen my expertise.`,
-        ],
-        technical: [
-          `I'm proficient in multiple technologies including ${getSkillsSummary()}. My capstone required building systems with machine learning and decision support components. I've completed training in modern development practices and gained hands-on experience through industry events and certifications. I focus on writing clean, scalable code following design patterns and SOLID principles.`,
-        ],
-        learning: [
-          `I'm deeply committed to continuous learning. I've undertaken ${getCertByKeyword('AI')} and ${getCertByKeyword('Cybersecurity')} to broaden my technical foundation. My approach is systematic: I study fundamentals, work through hands-on projects, engage with community best practices, and implement what I learn immediately. This has allowed me to master diverse tech stacks rapidly.`,
-        ],
-        motivation: [
-          `I'm genuinely excited about this role because it aligns with my passion for building impactful technology. I've invested significantly in my growth through formal certifications, competitive hackathons, and maintaining strong academic records. I led the ${getCapstoneTitle()} project and continuously advance my expertise in modern development practices. I'm eager to contribute meaningfully to your team.`,
-        ],
-        teamwork: [
-          `I believe collaboration is key to success. Through ${getAffiliationInfo()}, I've developed strong leadership and communication skills. I've worked with diverse teams on various projects and initiatives. I'm comfortable in pair programming sessions, conducting code reviews, and supporting teammates. I'm also open to feedback and actively seek opportunities to help others grow.`,
-        ]
-      };
-      
-      let answerType = 'experience';
-      if (/(technical|technology|programming|framework|language|code)/.test(qLower)) answerType = 'technical';
-      if (/(learn|training|skill|new|approach|growth|development)/.test(qLower)) answerType = 'learning';
-      if (/(interest|motivation|excit|passion|why|interested)/.test(qLower)) answerType = 'motivation';
-      if (/(team|collaborate|work|difficult|conflict|people)/.test(qLower)) answerType = 'teamwork';
-      
-      return answers[answerType][0];
+      return generateGenericAnswer(qa, question);
     } catch (error) {
       console.error('Error generating answer:', error);
-      return 'I have extensive experience in technology and continuous learning. I focus on applying my skills to solve real-world problems and collaborating effectively with teams.';
+      return 'I focus on applying my technical skills to solve real-world problems while maintaining code quality and collaborating effectively with teams.';
     }
+  }
+
+  function generateAIAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(model.*production|production.*issue|monitoring|performance|deploy)/.test(qLower)) {
+      return `In my Beaconet capstone project, I built machine learning models using neural network algorithms for proximity detection. I implemented comprehensive monitoring through logging frameworks and performance metrics. When models underperform, I follow a systematic approach: first, I analyze training data quality and feature distributions to detect data drift. Then I check model metrics against baseline performance. I've learned that retraining frequency, validation strategies, and A/B testing are critical for production reliability. I also maintain model versioning and fallback mechanisms to ensure system stability.`;
+    }
+    
+    if (/(feature|evaluation|metric|cross.?validation)/.test(qLower)) {
+      return `For feature engineering, I start by understanding the business context and data characteristics. In my capstone, I engineered spatial proximity features using beacon technology and grid-based indexing. I evaluate models using multiple metrics depending on the use case: for decision support systems, I focus on precision and recall; for ranking systems, I use NDCG. I validate approaches through cross-validation and train-test splits. I completed the "AI Fundamentals with IBM SkillsBuild" certification which covered these exact methodologies - supervised and unsupervised learning approaches that inform my evaluation strategy.`;
+    }
+    
+    if (/(ethical|bias|fairness|responsible)/.test(qLower)) {
+      return `Building ethical AI is central to my approach. I completed the "Responsible Technology: Ethics in IT Systems" certification which deeply covered bias detection, fairness mitigation, and privacy compliance. In practice, this means: first, I audit training data for demographic representation issues. Second, I test models across different demographic groups for performance parity. Third, I implement fairness constraints if needed. For my capstone's decision support system, I documented all limitations and assumptions transparently. I also stay current with GDPR and local regulations regarding data privacy and model accountability.`;
+    }
+    
+    if (/(framework|recent|trends|stay.*current)/.test(qLower)) {
+      return `I stay current through multiple channels. I've completed "Introduction to Modern AI" which covered LLMs, GPT architectures, and prompt engineering in production. I regularly attend tech talks like "AI in the Loop: Navigating Tech Careers in a New Era" and read about emerging frameworks. Right now, I'm exploring transformer architectures beyond traditional supervised learning. I also practice through hands-on projects - my recent work with n8n automation shows how I apply new ML concepts to business process optimization. I find that building small projects with new tools is the best way to truly understand them.`;
+    }
+    
+    if (/(experience.*model|build|project|hands.?on)/.test(qLower)) {
+      return `I have substantial hands-on experience building complete ML pipelines. My Beaconet capstone was a full machine learning project: I preprocessed beacon sensor data, trained proximity detection models using Python, and implemented decision support logic. The complete workflow included data cleaning (handling missing values, normalization), feature engineering (spatial indexing), model selection (comparing algorithms), hyperparameter tuning, and evaluation on held-out test sets. I used scikit-learn and TensorFlow for implementation. This project taught me the entire ML lifecycle from problem definition to production considerations.`;
+    }
+    
+    return `I've built machine learning systems through my capstone project, Beaconet, which implements AI-driven proximity detection with decision support components. I have certifications in AI Fundamentals and Modern AI covering supervised/unsupervised learning, neural networks, and practical production applications. I approach ML holistically: understanding data requirements, selecting appropriate algorithms, validating thoroughly, and deploying responsibly. I'm particularly focused on ethical AI practices after completing my Responsible Technology certification, ensuring our systems are fair, transparent, and compliant with regulations.`;
+  }
+
+  function generateFrontendAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(framework|react|svelte|component|lifecycle)/.test(qLower)) {
+      return `I have strong experience with modern frontend frameworks. I completed "SvelteKit - A Framework for Startups" training which covers reactive components, server-side rendering, and file-based routing. I also have hands-on React experience building component-based UIs with hooks and state management patterns. In practice, I design components to be reusable and maintainable, using composition over inheritance. I leverage framework-specific features like React hooks or Svelte's reactive declarations to manage component state cleanly. In my personal projects, I've built complex components with proper lifecycle handling, async data loading, and error boundaries.`;
+    }
+    
+    if (/(responsive|design|mobile|breakpoint|accessibility)/.test(qLower)) {
+      return `Responsive design is fundamental to my development philosophy. I use CSS Grid and Flexbox for flexible layouts that adapt across devices. I implement mobile-first design, starting with small screens and progressively enhancing for larger ones. I've tested approaches at multiple breakpoints (mobile 320px, tablet 768px, desktop 1024px+). I also prioritize accessibility - semantic HTML, ARIA labels, keyboard navigation, and color contrast that meets WCAG 2.1 standards. This isn't just compliance; it ensures my applications work for everyone. I've built several projects that pass accessibility audits while maintaining beautiful designs.`;
+    }
+    
+    if (/(state|management|redux|context|api)/.test(qLower)) {
+      return `For state management, I choose the approach based on application complexity. For simple applications, I use local component state. As complexity grows, I implement prop drilling patterns or use Context API. For larger applications requiring complex state logic, I'd implement Redux or Zustand. I also have strong REST API integration experience - making fetch calls, handling async operations with async/await, managing request states (loading, error, success), and caching strategies. In my projects, I've integrated with various APIs, handled authentication tokens securely, and implemented optimistic updates for better UX.`;
+    }
+    
+    if (/(performance|optimization|loading|render|bundle)/.test(qLower)) {
+      return `Performance optimization is crucial for user experience. I implement several techniques: code splitting and lazy loading to reduce initial bundle size, image optimization using modern formats and responsive images, memoization to prevent unnecessary re-renders, and pagination or virtual scrolling for large datasets. I use browser dev tools to identify bottlenecks through performance profiling. I also optimize perceived performance through skeleton loaders, progressive enhancement, and strategic preloading. I haven't done production-scale optimization yet, but my coursework and personal projects have given me solid understanding of these patterns.`;
+    }
+    
+    if (/(test|jest|testing)/.test(qLower)) {
+      return `I approach frontend testing with Jest for unit tests and RTL (React Testing Library) for component tests. I write tests that verify behavior from the user's perspective rather than implementation details. For example, I test that clicking a button produces the expected result, not that a specific state change occurred. I aim for meaningful test coverage - testing critical user paths, error states, and edge cases rather than chasing 100% line coverage. I also appreciate how testing drives better design: forces me to write testable, decoupled components.`;
+    }
+    
+    return `I have practical frontend development experience with modern frameworks like React and SvelteKit. I focus on building responsive, accessible user interfaces that work seamlessly across devices. I'm proficient in CSS Grid and Flexbox, implement performance optimizations like code splitting and lazy loading, and write maintainable component code. I test my work with Jest and ensure WCAG accessibility standards. My approach combines good design principles with technical excellence.`;
+  }
+
+  function generateFullStackAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(architecture|design|decision|framework|svelte|next)/.test(qLower)) {
+      return `For full-stack architecture, I start by understanding requirements and constraints. I completed SvelteKit training specifically because it's a modern full-stack framework handling both frontend and backend intelligently. My architectural approach considers: frontend needs (responsiveness, performance), backend requirements (scalability, reliability), and integration points (APIs, data flow). I make technology choices based on team expertise, project requirements, and maintenance considerations. I've learned that choosing a cohesive stack (like Node.js + React, or SvelteKit for everything) reduces mental overhead and context switching.`;
+    }
+    
+    if (/(api|rest|design|endpoint|http)/.test(qLower)) {
+      return `For API design, I follow RESTful principles. I structure endpoints around resources (/users, /posts), use appropriate HTTP methods (GET for retrieval, POST for creation, PUT for updates, DELETE for removal), and return meaningful status codes. I version APIs for backward compatibility. I document thoroughly using OpenAPI/Swagger. Request/response shapes are consistent and predictable. I implement proper error handling with descriptive error messages. For authentication, I use industry standards like JWT tokens. I've also worked with streaming and pagination for large datasets. Good API design makes frontend integration straightforward and enables multiple clients.`;
+    }
+    
+    if (/(database|postgres|mongo|sql|schema|query|optimization)/.test(qLower)) {
+      return `I have experience with both relational and document databases. With PostgreSQL and MySQL, I design normalized schemas, write efficient queries using proper indexes, use JOINs for relational data, and understand transaction ACID properties. With MongoDB, I design by query patterns, leverage document flexibility, and use aggregation pipelines for complex operations. My approach: understand access patterns first, then design schema accordingly. I optimize through indexing, query analysis, and occasional denormalization when it significantly improves performance. I also consider backup/recovery strategies and maintain data integrity constraints.`;
+    }
+    
+    if (/(deploy|production|ci.*cd|github.*actions|environment)/.test(qLower)) {
+      return `For deployment, I believe in automation through CI/CD pipelines. Using GitHub Actions, I set up workflows that: automatically run tests on every push, build the application if tests pass, deploy to staging for validation, and then promote to production. I manage environment variables separately for dev/staging/production, use Docker for consistent environments, and implement health checks. I also think about monitoring post-deployment - error tracking, performance metrics, and logs. I haven't done large-scale production deployment yet, but my coursework has covered these patterns thoroughly.`;
+    }
+    
+    if (/(svelte|next|modern|framework)/.test(qLower)) {
+      return `I just completed SvelteKit training and I'm excited about it as a modern full-stack framework. Unlike traditional separated frontend/backend, SvelteKit handles both intelligently: you write endpoints as simple files, fetch them cleanly from components, and get automatic progressive enhancement. Server-side rendering eliminates client-side blank states. File-based routing reduces boilerplate. Reactive declarations make state management intuitive. It's productive for startups because you're not juggling separate codebases. I value frameworks that reduce cognitive load while maintaining capability.`;
+    }
+    
+    return `I approach full-stack development by selecting appropriate technologies for each layer. I'm trained in SvelteKit for modern full-stack applications, have REST API design experience, and understand both relational and document databases. I design scalable systems with proper separation of concerns, implement robust error handling, and automate deployment through CI/CD. My philosophy is choosing tools that work well together and maintaining consistency across the stack.`;
+  }
+
+  function generateDevOpsAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(docker|container|orchestration|kubernetes)/.test(qLower)) {
+      return `I understand containerization through Docker - building images that package applications with all dependencies, enabling consistency across environments. Images are built from Dockerfiles defining the environment, and containers run these images in isolation. For orchestration at scale, Kubernetes manages multiple containers across machines - handling deployment, scaling, and networking automatically. I haven't done production Kubernetes yet, but I understand the concepts: pods (smallest deployable unit), services (networking), deployments (manage replicas), and persistent volumes for state.`;
+    }
+    
+    if (/(ci.*cd|pipeline|github.*actions|automat)/.test(qLower)) {
+      return `CI/CD automation is essential for reliable deployments. Using GitHub Actions, I create workflows with triggers (on push, on PR). Stages typically include: test (run unit/integration tests), build (compile/bundle), and deploy (push to staging/production). Each stage must pass before proceeding. This catches issues early and ensures only validated code reaches production. I also implement notifications when pipelines fail. The goal is making deployment fast, reliable, and repeatable - removing manual, error-prone steps.`;
+    }
+    
+    if (/(monitoring|logging|observability|metrics|issue)/.test(qLower)) {
+      return `Observability is how you understand what's happening in production. I think of three pillars: logs (event records), metrics (quantitative measurements over time), and traces (request flows). I've configured logging frameworks to capture important events without overwhelming storage. For metrics, I'd monitor application health (error rates, latency), system resources (CPU, memory), and business metrics (user signups, transactions). I use tools like dashboards to visualize trends and alerts to notify when thresholds are exceeded. Good observability enables rapid issue diagnosis.`;
+    }
+    
+    if (/(security|access|secrets|deployment)/.test(qLower)) {
+      return `Security in DevOps means multiple layers. I've completed cybersecurity training covering network security, encryption protocols, and secure coding. In deployment contexts, this means: storing secrets (API keys, passwords) securely using environment-specific vaults, not in code. Implementing access controls so only authorized teams can deploy. Using HTTPS for all communications. Scanning dependencies for vulnerabilities. Keeping infrastructure updated with security patches. And logging security events for audit trails. DevOps security isn't an afterthought - it's baked into the entire deployment process.`;
+    }
+    
+    if (/(infrastructure|code|iac|terraform)/.test(qLower)) {
+      return `Infrastructure as Code means defining infrastructure in code rather than manual configuration. Tools like Terraform let you declare desired infrastructure state, then apply changes consistently. Benefits include: reproducibility (spin up identical environments), version control (track infrastructure changes), rapid scaling (code-based provisioning), and disaster recovery (rebuild from code). I understand the concept deeply even though I'm still gaining hands-on Terraform experience. The paradigm shift is thinking of infrastructure like application code - declarative, tested, versioned.`;
+    }
+    
+    return `I understand DevOps as automating and monitoring the entire software lifecycle. I'm familiar with containerization (Docker), CI/CD pipelines (GitHub Actions), and infrastructure automation concepts. I've completed relevant training in cybersecurity and system design. My approach emphasizes automation to reduce manual errors, comprehensive monitoring for visibility, and security throughout the deployment pipeline.`;
+  }
+
+  function generateQAAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(automation|strategy|testing|approach)/.test(qLower)) {
+      return `My testing strategy prioritizes automation and meaningful coverage over coverage percentages. I use Jest for unit testing individual functions and components in isolation. I write integration tests for feature workflows crossing multiple components. End-to-end testing (Selenium/Cypress) validates complete user journeys in real browsers. The pyramid model guides my mix: many small unit tests (fast, specific), fewer integration tests, and just enough E2E tests for critical paths. This approach catches issues early while maintaining reasonable test execution speed.`;
+    }
+    
+    if (/(bug|finding|document|issue|report)/.test(qLower)) {
+      return `When finding bugs, I'm methodical. First, I reproduce consistently and understand the exact conditions triggering the issue - what steps did I take? Did it happen once or repeatedly? What environment? Then I document clearly: expected behavior, actual behavior, reproduction steps, environment details. I create isolated test cases that fail, making debugging easier. For complex bugs, I use debuggers to step through code at breakpoints, examine variable states. This systematic approach often reveals root cause quickly. I also learn from bugs - was this preventable by better tests or typing?`;
+    }
+    
+    if (/(api|testing|tool|postman|rest)/.test(qLower)) {
+      return `API testing is crucial for backend quality. Postman is my go-to tool for REST API testing - I create test suites validating endpoints, status codes, response payloads. I test happy paths (status 200 with correct data) and error cases (4xx/5xx with appropriate errors). I validate response schemas, ensure consistent error formats, and test edge cases like boundary values. I also automate these tests in CI/CD pipelines. This catches API regressions before they reach production.`;
+    }
+    
+    if (/(collaborate|developer|quality|culture|code review)/.test(qLower)) {
+      return `QA isn't separate from development - it's shared responsibility. I collaborate with developers to understand features before implementation, suggesting testable design. I provide early feedback on architectures that are hard to test. After implementation, I conduct thorough testing but also understand that some issues escape to production despite best efforts. Good QA culture means developers write their own unit tests, we have dedicated acceptance tests for stories, and we're all committed to quality. I practice test-driven development when appropriate - writing tests first drives better design.`;
+    }
+    
+    if (/(coverage|suite|good|metrics)/.test(qLower)) {
+      return `Good test suites are maintainable, not just comprehensive. I focus on testing behavior and user paths rather than implementation details. Tests should fail for real reasons, not because of refactoring. Good metrics are: how many critical functionality paths are tested? How quickly do tests execute? Can developers understand what each test validates? Coverage percentage is less important - I'd rather have 60% meaningful coverage than 100% coverage of trivial assertions. The goal is confidence that the system works, not checking boxes.`;
+    }
+    
+    return `I approach QA by automating test execution, testing across the pyramid (unit, integration, E2E), and maintaining close collaboration with developers. I focus on meaningful test coverage that validates actual user scenarios and catches regressions early. Good QA is about building quality into the process, not just verifying after the fact.`;
+  }
+
+  function generateSecurityAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(assessment|testing|penetration|methodology)/.test(qLower)) {
+      return `Security assessments follow a structured methodology. I approach this like: first, reconnaissance - understanding the system architecture, technologies, and potential attack surface. Then vulnerability scanning - automated tools and manual exploration for common vulnerabilities (injection flaws, authentication weaknesses). Penetration testing simulates actual attacks to confirm vulnerabilities are exploitable. Finally, reporting findings with severity, impact, and remediation steps. I completed cybersecurity training covering OWASP Top 10, threat modeling, and common vulnerabilities. The goal is helping teams understand and fix security issues before attackers exploit them.`;
+    }
+    
+    if (/(coding|vulnerability|sql.*injection|xss|csrf|flaws)/.test(qLower)) {
+      return `Secure coding prevents vulnerabilities from being introduced. Common issues include: SQL injection (sanitize database inputs), XSS (escape HTML output), CSRF (validate request origins), authentication flaws (strong passwords, secure session handling). My approach: use parameterized queries, framework-provided escaping, validate all inputs, don't store sensitive data in code. I've completed training in secure coding practices and understand GDPR implications. Many vulnerabilities stem from developers not understanding security - I'd work to educate teams, provide secure patterns, and conduct security-focused code reviews.`;
+    }
+    
+    if (/(encryption|key|data.*protection|storage)/.test(qLower)) {
+      return `Data protection involves encryption at multiple levels. In transit, HTTPS (TLS) encrypts communication between client and server - preventing interception. At rest, sensitive data (passwords, tokens, PII) should be encrypted using strong algorithms (AES-256). Key management is critical - secure generation, rotation, storage in access-limited vaults, never hardcoding. For passwords specifically, use strong hashing algorithms (bcrypt, scrypt) with salts. Cryptography is complex - I prefer using proven libraries rather than rolling my own. I completed cybersecurity training specifically covering encryption protocols and secure storage practices.`;
+    }
+    
+    if (/(threat|vulnerability|recent|stay.*current|informed)/.test(qLower)) {
+      return `Staying informed about threats is essential. I follow security communities, monitor CVE databases for vulnerabilities affecting technologies we use, and read security blogs. Recently, I've tracked vulnerabilities in popular frameworks and dependencies - understanding exploitation mechanics helps prioritize patching. I completed "IT Cybersecurity Roadshow" which engaged with current threat landscape. I also understand responsible disclosure - if I find a vulnerability, the ethical approach is to report privately to vendors before public disclosure.`;
+    }
+    
+    if (/(compliance|gdpr|standards|requirement|audit)/.test(qLower)) {
+      return `Compliance requirements like GDPR demand: understanding what personal data you collect and why, obtaining consent, implementing privacy by design, and having processes for data access/deletion requests. Security controls must be auditable - can you prove you're protecting data appropriately? I completed "Responsible Technology: Ethics in IT Systems" certification which covered privacy regulations, bias mitigation, and compliance approaches. My philosophy is building security controls because they're right, not just for compliance - though compliance requirements help drive that.`;
+    }
+    
+    return `I approach security as multi-layered defense. I'm trained in common vulnerabilities (OWASP Top 10), secure coding practices, encryption, and compliance frameworks like GDPR. I focus on fixing security issues early through threat modeling, secure design, and code review. I stay current with emerging threats and best practices. Security isn't an afterthought - it's fundamental to responsible development.`;
+  }
+
+  function generateLeadershipAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(architecture|design|decision|technology|choice|justify)/.test(qLower)) {
+      return `Architectural decisions should balance multiple concerns. I evaluate: does this solve the current problem? Is it maintainable long-term? What's the learning curve? Can it scale? What are failure modes? I involve the team in decisions - others see issues I miss. I also consider technical debt implications - optimizing too early creates debt, waiting too long creates risk. In my capstone, I designed Beaconet's architecture to separate concerns: data ingestion layer, processing layer, decision support layer. This enables independent evolution and testing.`;
+    }
+    
+    if (/(mentor|junior|code.*review|knowledge|sharing)/.test(qLower)) {
+      return `Mentoring is about growth, not dictation. I approach code reviews looking for improvement opportunities while respecting autonomy. I try to explain the "why" behind feedback - what principle or pattern does this relate to? I celebrate good code and learning from mistakes. I also seek feedback myself - I'm not the authority, I'm learning too. Through my JPCS Director role for special projects, I've organized tech talks and workshops, trying to create spaces where people grow together. Effective mentoring builds confidence and capability in others.`;
+    }
+    
+    if (/(challenge|overcome|learning|improvement|problem)/.test(qLower)) {
+      return `The biggest challenge in my capstone was implementing decision support with multiple weighted factors - ensuring logic was understandable, maintainable, and produced correct results. I overcame this by: creating clear abstractions for decision rules, writing extensive tests validating the logic, documenting the weighting rationale, and iterating based on feedback. This challenged me technically (complex algorithms) and taught me that clear documentation is as important as clever implementation. The most valuable learning is often from difficult problems.`;
+    }
+    
+    if (/(debt|refactor|feature|balance|priority)/.test(qLower)) {
+      return `Technical debt is like financial debt - sometimes borrowing is smart (ship fast to validate), but paying interest is expensive (slower future development). My approach: track debt explicitly, understand the cost (developer velocity hit), and prioritize. I don't refactor for perfection - I refactor when it unblocks progress or reduces future burden. I balance shipping features (business value, team morale) with paying down debt (long-term velocity, predictability). This usually means: feature, feature, technical work, repeat. Total refactor sprints risk irrelevance.`;
+    }
+    
+    if (/(philosophy|code.*quality|practice|standard|team)/.test(qLower)) {
+      return `Clean code is an investment in future developers - your teammates and future you. Principles like SOLID (Single Responsibility, Open/Closed, Liskov, Interface Segregation, Dependency Inversion) create flexibility and reduce bugs. DRY (Don't Repeat Yourself) prevents inconsistency. Meaningful names make code self-documenting. I establish standards by example, code review, and discussion - not dictation. When everyone understands why clean code matters, they own quality rather than complying reluctantly.`;
+    }
+    
+    return `I believe in principle-driven architecture that balances current needs with long-term maintainability. I approach technical decisions collaboratively, involving the team in reasoning. I mentor through explanation and example, celebrate learning, and share knowledge openly. I manage technical debt strategically, understanding that some debt is valuable but it has a cost. My philosophy centers on sustainable development practices.`;
+  }
+
+  function generateLearningAnswers(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(sveltekit|n8n|python|recent|certificate|training)/.test(qLower)) {
+      const certList = qa.certifications ? qa.certifications.slice(0, 3).map(c => `${typeof c === 'object' ? c.title : c}`).join(', ') : 'various courses';
+      return `I pursue learning systematically. Recently, I completed SvelteKit training because full-stack development is increasingly important - learning this framework taught me how modern tooling simplifies complexity. I also completed n8n for AI-powered automation, showing how to build intelligent workflows without extensive coding. Before that, Python fundamentals deepened my programming foundation. My approach: identify a relevant skill gap, find structured learning (formal course beats random tutorials), implement immediately with a project, then teach others to solidify understanding.`;
+    }
+    
+    if (/(approach|strategy|resources|project|hands.*on)/.test(qLower)) {
+      const recentEvent = qa.events ? qa.events[0] : null;
+      return `My learning approach combines multiple channels. I take formal courses (IBM SkillsBuild, Coursera) for structured foundations. I attend workshops like "${recentEvent ? recentEvent.title : 'industry events'}" for exposure to new ideas. I read documentation and blogs for specific techniques. Most importantly, I build projects immediately - theory without practice doesn't stick. I also contribute to open source and participate in hackathons like the HacKada challenge, which force me to apply learning under pressure. I find that teaching others (like my Hour of Code sessions) solidifies my understanding dramatically.`;
+    }
+    
+    if (/(new.*technology|framework|adapt|quick.*learn|growth)/.test(qLower)) {
+      return `New technologies are exciting and intimidating. My adaptation strategy: understand the core concepts first (what problem does this solve?), find small tutorials/examples to see it in action, then build something real with it. I accept I won't be expert immediately - it's okay to reference documentation frequently at first. I ask for help from more experienced teammates. I also learn from failures - when something doesn't work, debugging teaches more than success. The confidence to learn new technologies comes from past success doing exactly this.`;
+    }
+    
+    if (/(commitment|continuous|mindset)/.test(qLower)) {
+      return `My commitment to learning is genuine. Technology evolves rapidly - staying relevant requires continuous growth. I've completed 18+ certifications this year across AI, security, automation, and frameworks. But certifications alone don't mean growth - it's applying learning to projects, making mistakes, recovering, and improving. I'm genuinely excited about mastering my craft, not just checking boxes. I believe if I stop learning, I stagnate. This drive comes from passion for building great things.`;
+    }
+    
+    return `I approach learning systematically: identify skill gaps, pursue structured training, implement immediately with projects, and teach others to solidify understanding. I draw from multiple sources - certifications, workshops, documentation, and hands-on projects. My philosophy is continuous growth - the pace of technology change requires ongoing learning, and I'm genuinely excited about deepening my expertise.`;
+  }
+
+  function generateGenericAnswer(qa, question) {
+    const qLower = question.toLowerCase();
+    
+    if (/(experience|background|yourself)/.test(qLower)) {
+      const degree = qa.education ? qa.education.degree : 'Computer Science';
+      const school = qa.education ? qa.education.school : 'university';
+      return `I'm a ${degree} student at ${school} with hands-on experience across multiple domains. My capstone project, Beaconet, uses AI and spatial indexing for lost item tracking. I've completed extensive certifications in AI, automation, and security. I'm actively involved in professional organizations (JPCS Director for Special Projects) and community education (Hour of Code sessions). I'm passionate about building technology that solves real problems.`;
+    }
+    
+    if (/(interest|role|align|motivation|goal)/.test(qLower)) {
+      return `I'm interested in this role because it aligns with my technical strengths and career trajectory. I've invested significantly in relevant skills through certifications and projects. I'm excited about the opportunity to contribute meaningfully to your team while continuing to grow. I believe this position offers the technical challenges and collaborative environment where I can excel and make impact.`;
+    }
+    
+    if (/(skill|ability|strength)/.test(qLower)) {
+      return `My key strengths are: strong technical foundation across multiple domains (AI, web development, infrastructure), ability to learn new technologies quickly as demonstrated through recent certifications, hands-on project experience from capstone and hackathons, and genuine passion for collaborative problem-solving. I also bring perspective from my involvement in professional communities and teaching programming to others.`;
+    }
+    
+    if (/(challenge|problem|approach|solve)/.test(qLower)) {
+      return `My problem-solving approach is systematic: first understand the problem deeply (what are we actually solving?), explore options and their tradeoffs, validate assumptions, implement incrementally with testing, and iterate based on feedback. I'm not afraid to ask questions when I'm unclear. I also collaborate - often the best insights come from diverse perspectives. Challenging problems are where I learn most, so I embrace them rather than avoiding them.`;
+    }
+    
+    return `I bring a combination of technical depth from my computer science studies, breadth from diverse certifications and projects, and genuine passion for impactful technology. I learn quickly, collaborate effectively, and approach problems systematically. I'm excited about contributing to your team.`;
   }
 
   function calculatePerQuestionScore(jobDetails, questionNum) {
     try {
       const qa = window.resumeData;
+      const jobTitle = (jobDetails.title || '').toLowerCase();
+      const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase());
       
-      // Distribute the overall match score across 5 questions
-      // Each question focuses on different aspects
-      const skillScore = evaluateSkillMatch(jobDetails) * 0.5;
-      const levelScore = calculateLevelAlignment(getResumeExperienceLevel(), getJobExperienceLevel(jobDetails)) * 0.25;
-      const certScore = evaluateCertificateRelevance(jobDetails) * 0.15;
-      const projectScore = evaluateProjectExperience(jobDetails) * 0.1;
+      // Calculate component scores with higher precision
+      const skillScore = evaluateSkillMatchAccuracy(jobDetails, jobTitle, jobSkills);
+      const levelScore = calculateLevelAlignment(getResumeExperienceLevel(), getJobExperienceLevel(jobDetails));
+      const certScore = evaluateCertificateRelevanceDetailed(jobDetails, jobTitle, jobSkills);
+      const projectScore = evaluateProjectExperienceDetailed(jobDetails, jobTitle, jobSkills);
       
-      let baseScore = 0;
+      let finalScore = 0;
       
-      // Distribute scores across questions
+      // Distribute scores across questions based on resume strengths
       switch(questionNum) {
-        case 1: baseScore = skillScore * 1.2; break;
-        case 2: baseScore = (skillScore * 0.8) + (projectScore * 1.0); break;
-        case 3: baseScore = (certScore * 1.5) + (projectScore * 0.5); break;
-        case 4: baseScore = (certScore * 1.0) + (skillScore * 0.5); break;
-        case 5: baseScore = (levelScore * 1.5) + (certScore * 0.5); break;
+        case 1: 
+          // Q1: Technical experience - weighted by skills and projects
+          finalScore = (skillScore * 0.6) + (projectScore * 0.4);
+          break;
+        case 2: 
+          // Q2: Problem-solving - weighted by projects and level
+          finalScore = (projectScore * 0.5) + (levelScore * 0.3) + (certScore * 0.2);
+          break;
+        case 3: 
+          // Q3: Technical accomplishments - weighted by certs and skills
+          finalScore = (certScore * 0.5) + (skillScore * 0.35) + (projectScore * 0.15);
+          break;
+        case 4: 
+          // Q4: Learning approach - weighted by certs and level
+          finalScore = (certScore * 0.6) + (levelScore * 0.3) + (skillScore * 0.1);
+          break;
+        case 5: 
+          // Q5: Tech stack knowledge - weighted by skills and overall fit
+          finalScore = (skillScore * 0.5) + (certScore * 0.3) + (levelScore * 0.2);
+          break;
       }
       
-      return Math.min(Math.max(Math.round(baseScore), 40), 88);
+      return Math.min(Math.max(Math.round(finalScore), 35), 90);
     } catch (error) {
       console.error('Error calculating question score:', error);
-      return 65; // Return average score on error
+      return 65;
     }
   }
 
+  function evaluateSkillMatchAccuracy(jobDetails, jobTitle, jobSkills) {
+    const resumeSkills = extractResumeSkillsDetailed();
+    let matchedSkills = [];
+    
+    jobSkills.forEach(jobSkill => {
+      const matchedSkill = resumeSkills.find(rs => {
+        const rsLower = rs.toLowerCase();
+        const jsLower = jobSkill.toLowerCase();
+        return rsLower === jsLower || rsLower.includes(jsLower) || jsLower.includes(rsLower);
+      });
+      if (matchedSkill) matchedSkills.push(matchedSkill);
+    });
+    
+    const baseSkillScore = jobSkills.length > 0 ? (matchedSkills.length / jobSkills.length) * 100 : 50;
+    
+    // Bonus for strategic skill matches (AI, automation, web dev, cybersecurity)
+    let strategicBonus = 0;
+    const strategicAreas = ['ai', 'automation', 'react', 'node', 'python', 'cybersecurity', 'devops'];
+    strategicAreas.forEach(area => {
+      if (jobTitle.includes(area) && resumeSkills.some(s => s.toLowerCase().includes(area))) {
+        strategicBonus += 5;
+      }
+    });
+    
+    return Math.min(baseSkillScore + strategicBonus, 100);
+  }
+
+  function extractResumeSkillsDetailed() {
+    const skills = [];
+    const qa = window.resumeData;
+    
+    if (qa.skills) {
+      if (qa.skills.programmingLanguages && Array.isArray(qa.skills.programmingLanguages)) {
+        qa.skills.programmingLanguages.forEach(skill => {
+          if (typeof skill === 'object' && skill.lang) {
+            skills.push(skill.lang);
+            if (skill.proficiency === 'Advanced') {
+              skills.push(`${skill.lang}-expert`); // Mark advanced skills
+            }
+          }
+        });
+      }
+      if (qa.skills.frameworksLibraries && Array.isArray(qa.skills.frameworksLibraries)) {
+        qa.skills.frameworksLibraries.forEach(skill => {
+          if (typeof skill === 'object' && skill.name) {
+            skills.push(skill.name);
+          }
+        });
+      }
+      if (qa.skills.technicalAreas && Array.isArray(qa.skills.technicalAreas)) {
+        qa.skills.technicalAreas.forEach(skill => {
+          if (typeof skill === 'object' && skill.area) {
+            skills.push(skill.area);
+            if (skill.level === 'Advanced') {
+              skills.push(`${skill.area}-expert`);
+            }
+          }
+        });
+      }
+      if (qa.skills.technicalITSkills && Array.isArray(qa.skills.technicalITSkills)) {
+        qa.skills.technicalITSkills.forEach(skill => {
+          if (typeof skill === 'object' && skill.skill) {
+            skills.push(skill.skill);
+            if (skill.proficiency === 'Advanced') {
+              skills.push(`${skill.skill}-expert`);
+            }
+          }
+        });
+      }
+    }
+    
+    return skills.length > 0 ? skills : ['Python', 'JavaScript', 'React', 'Node.js', 'Problem-solving'];
+  }
+
+  function evaluateCertificateRelevanceDetailed(jobDetails, jobTitle, jobSkills) {
+    const qa = window.resumeData;
+    if (!qa.certifications || !qa.certifications.length) return 0.5;
+    
+    let relevanceScore = 0;
+    const jobSkillsLower = jobSkills.map(s => s.toLowerCase());
+    
+    qa.certifications.forEach(cert => {
+      const certName = (typeof cert === 'object' ? cert.title : cert).toLowerCase();
+      const certDesc = (typeof cert === 'object' ? cert.desc : '').toLowerCase();
+      const certCombined = `${certName} ${certDesc}`;
+      
+      // Direct skill match certifications
+      jobSkillsLower.forEach(skill => {
+        if (certCombined.includes(skill)) {
+          relevanceScore += 8;
+        }
+      });
+      
+      // Job title specific certifications
+      if ((jobTitle.includes('ai') || jobTitle.includes('machine')) && certCombined.includes('ai')) {
+        relevanceScore += 10;
+      }
+      if ((jobTitle.includes('frontend') || jobTitle.includes('full stack')) && (certCombined.includes('react') || certCombined.includes('sveltekit'))) {
+        relevanceScore += 10;
+      }
+      if (jobTitle.includes('devops') && (certCombined.includes('docker') || certCombined.includes('ci') || certCombined.includes('automation'))) {
+        relevanceScore += 10;
+      }
+      if (jobTitle.includes('security') && certCombined.includes('cyber')) {
+        relevanceScore += 10;
+      }
+      if (jobTitle.includes('qa') && certCombined.includes('testing')) {
+        relevanceScore += 10;
+      }
+      
+      // General professional development
+      if (certCombined.includes('leadership') || certCombined.includes('career')) {
+        relevanceScore += 3;
+      }
+    });
+    
+    // Normalize score (max 100%)
+    return Math.min((relevanceScore / qa.certifications.length) * 2, 100);
+  }
+
+  function evaluateProjectExperienceDetailed(jobDetails, jobTitle, jobSkills) {
+    const qa = window.resumeData;
+    if (!qa.events || !qa.events.length) return 0.5;
+    
+    let projectScore = 0;
+    const jobSkillsLower = jobSkills.map(s => s.toLowerCase());
+    const totalEvents = qa.events.length;
+    
+    qa.events.forEach(event => {
+      const eventTitle = event.title.toLowerCase();
+      const eventDesc = (event.desc || '').toLowerCase();
+      const eventCombined = `${eventTitle} ${eventDesc}`;
+      
+      // Hackathon events = high project experience
+      if (eventTitle.includes('hackathon')) {
+        projectScore += 15;
+        
+        // Check for job-specific hackathons
+        if (eventTitle.includes('ai') && jobTitle.includes('ai')) projectScore += 10;
+        if (eventTitle.includes('fintech') && jobTitle.includes('fintech')) projectScore += 10;
+        if (eventTitle.includes('automation') && jobTitle.includes('automation')) projectScore += 10;
+      }
+      
+      // Skill-specific workshops
+      jobSkillsLower.forEach(skill => {
+        const cleanSkill = skill.split('-')[0].toLowerCase(); // Remove '-expert' suffix
+        if (eventCombined.includes(cleanSkill)) {
+          projectScore += 8;
+        }
+      });
+      
+      // Job-specific events
+      if ((jobTitle.includes('ai') || jobTitle.includes('machine')) && eventCombined.includes('ai')) {
+        projectScore += 10;
+      }
+      if ((jobTitle.includes('security') || jobTitle.includes('cyber')) && eventCombined.includes('cyber')) {
+        projectScore += 10;
+      }
+      if ((jobTitle.includes('automation') || jobTitle.includes('devops')) && eventCombined.includes('automation')) {
+        projectScore += 10;
+      }
+      if ((jobTitle.includes('frontend') || jobTitle.includes('frontend engineer')) && eventCombined.includes('framework')) {
+        projectScore += 10;
+      }
+      
+      // Leadership/speaking experience
+      if (eventTitle.includes('hour of code')) projectScore += 5;
+    });
+    
+    // Normalize score (max 100%)
+    return Math.min((projectScore / totalEvents) * 1.5, 100);
+  }
+
   function evaluateSkillMatch(jobDetails) {
-    const resumeSkills = extractResumeSkills();
+    const resumeSkills = extractResumeSkillsDetailed();
     const jobSkillsList = parseJobSkills(jobDetails);
     let skillMatches = 0;
     
@@ -616,7 +932,21 @@
       }
     }
     
-    return jobSkillsList.length > 0 ? (skillMatches / jobSkillsList.length) * 100 : 50;
+    const baseScore = jobSkillsList.length > 0 ? (skillMatches / jobSkillsList.length) * 100 : 50;
+    
+    // Add strategic bonus for advanced technical areas
+    let bonus = 0;
+    const strengthAreas = ['ai', 'machine learning', 'automation', 'react', 'node.js', 'python', 'cybersecurity', 'devops', 'full-stack'];
+    const jobSkillsLower = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
+    const jobTitleLower = (jobDetails.title || '').toLowerCase();
+    
+    strengthAreas.forEach(area => {
+      if ((jobSkillsLower.includes(area) || jobTitleLower.includes(area)) && resumeSkills.some(s => s.toLowerCase().includes(area))) {
+        bonus += 3;
+      }
+    });
+    
+    return Math.min(baseScore + bonus, 100);
   }
 
   function animateTyping(element, text, speed = 20, callback = null) {
@@ -651,37 +981,8 @@
     
     showTyping(true);
     
-    const skillName = jobDetails.skills && jobDetails.skills.length > 0 ? jobDetails.skills[0] : 'the required tech stack';
-    const respName = jobDetails.responsibilities && jobDetails.responsibilities.length > 0 ? jobDetails.responsibilities[0]?.toLowerCase() : 'solve a complex technical problem';
-    
-    let questions = [];
-    
-    if (currentMatchScore >= 70) {
-      questions = [
-        `Tell me about your experience with ${skillName}. How have you applied it in real projects?`,
-        `Describe a time when you had to ${respName}. What was your approach?`,
-        "What are your most significant technical accomplishments?",
-        "How do you approach learning new technologies?",
-        "Tell us about your experience with the technologies mentioned in the job description."
-      ];
-    } else if (currentMatchScore >= 50) {
-      questions = [
-        `Tell us about your experience with ${skillName || 'software development'}.`,
-        "What interests you about this role?",
-        "How would you approach learning the skills you don't yet have?",
-        `Describe a project where you had to learn something new.`,
-        "What can you tell us about our technology stack?"
-      ];
-    } else {
-      questions = [
-        "Tell us about yourself and your tech background.",
-        "What interests you in transitioning to this role?",
-        "What are you willing to learn to succeed in this position?",
-        "Describe your approach to solving technical problems.",
-        "Why do you think you'd be a good fit despite the experience gap?"
-      ];
-    }
-    
+    // Get job-specific questions
+    const questions = getJobSpecificQuestions(jobDetails);
     const question = questions[questionNum - 1];
     
     setTimeout(() => {
@@ -689,12 +990,12 @@
       
       const qMsg = document.createElement('div');
       qMsg.className = 'msg bot';
-      qMsg.innerHTML = `<strong>Q${questionNum}:</strong> ${question}`;
+      qMsg.innerHTML = `<strong>Q${questionNum}:</strong> ${question.question}`;
       chatLog.appendChild(qMsg);
       chatLog.scrollTop = chatLog.scrollHeight;
       
       setTimeout(() => {
-        const answer = generateAnswerFromResume(question);
+        const answer = generateAnswerFromResume(question.question);
         const qScore = calculatePerQuestionScore(jobDetails, questionNum);
         questionScores.push(qScore);
         
@@ -730,6 +1031,313 @@
     }, 800);
   }
 
+  function getJobSpecificQuestions(jobDetails) {
+    const skills = jobDetails.skills || [];
+    const responsibilities = jobDetails.responsibilities || [];
+    const title = (jobDetails.title || '').toLowerCase();
+    
+    // Determine job category and return job-specific questions
+    if (title.includes('ai') || title.includes('machine')) {
+      return generateAIEngineerQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('senior') && (title.includes('software') || title.includes('developer'))) {
+      return generateSeniorDeveloperQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('junior') || title.includes('entry')) {
+      return generateJuniorDeveloperQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('frontend')) {
+      return generateFrontendEngineerQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('full stack') || title.includes('full-stack')) {
+      return generateFullStackDeveloperQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('devops')) {
+      return generateDevOpsEngineerQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('qa') || title.includes('test')) {
+      return generateQAEngineerQuestions(jobDetails, skills, responsibilities);
+    } else if (title.includes('security') || title.includes('cyber')) {
+      return generateSecurityEngineerQuestions(jobDetails, skills, responsibilities);
+    } else {
+      return generateGenericDeveloperQuestions(jobDetails, skills, responsibilities);
+    }
+  }
+
+  function generateAIEngineerQuestions(jobDetails, skills, responsibilities) {
+    const primarySkill = skills[0] || 'machine learning';
+    const resp = responsibilities[0] || 'develop AI solutions';
+    
+    return [
+      {
+        question: `Describe your experience building and training machine learning models. What frameworks have you used, and can you walk through a complete project from data preprocessing to model deployment?`,
+        assessment: `Depth of ML knowledge, understanding of ML lifecycle, and practical implementation experience`,
+        tip: `Reference your Beaconet capstone project that uses AI algorithms. Discuss data handling, model selection, and performance metrics you've used.`
+      },
+      {
+        question: `How do you approach feature engineering and model evaluation? What metrics do you prioritize based on different use cases?`,
+        assessment: `Understanding of ML fundamentals, data analysis skills, and domain-specific thinking`,
+        tip: `Discuss your proximity-grid approach from your capstone. Mention specific techniques like normalization, cross-validation, or confusion matrices you've implemented.`
+      },
+      {
+        question: `Tell us about a time when your ML model didn't perform as expected in production. How did you identify and fix the issue?`,
+        assessment: `Problem-solving in real-world scenarios, debugging skills, and technical depth`,
+        tip: `Describe how you'd approach model monitoring, drift detection, and retraining. This shows production-ready thinking.`
+      },
+      {
+        question: `How do you stay current with rapid advancements in AI and machine learning? What recent papers, techniques, or frameworks have caught your attention?`,
+        assessment: `Continuous learning mindset and awareness of industry trends`,
+        tip: `Reference your recent AI certifications (AI Fundamentals with IBM, Introduction to Modern AI), and mention LLMs, GPT architectures, or specific use cases you're exploring.`
+      },
+      {
+        question: `Describe your approach to building ethical AI systems. How do you address bias, fairness, and responsible AI practices?`,
+        assessment: `Understanding of AI ethics, bias mitigation, and responsible innovation`,
+        tip: `Reference your "Responsible Technology: Ethics in IT Systems" certification that covers bias mitigation and ethical considerations.`
+      }
+    ];
+  }
+
+  function generateFrontendEngineerQuestions(jobDetails, skills, responsibilities) {
+    const primarySkill = skills[0] || 'React';
+    
+    return [
+      {
+        question: `Walk me through your experience with ${primarySkill} or similar frontend frameworks. Can you describe a complex component you've built and your design decisions?`,
+        assessment: `Frontend framework expertise, component architecture, and state management understanding`,
+        tip: `Reference your SvelteKit training and React experience. Discuss component lifecycle, hooks, or reactive components. Mention your full-stack web development skills.`
+      },
+      {
+        question: `How do you approach responsive design and ensuring your applications work seamlessly across different devices and browsers?`,
+        assessment: `Understanding of responsive design, testing, and user experience`,
+        tip: `Mention CSS Grid, Flexbox, media queries, and accessibility (WCAG 2.1). Share experience with mobile-first approach from your web development practice.`
+      },
+      {
+        question: `Tell us about your experience with API integration and state management. How do you handle complex application state?`,
+        assessment: `Backend integration, state management patterns, and REST API knowledge`,
+        tip: `Discuss your REST API design skills, experience with Redux/Context API. Mention your Node.js backend experience for full context.`
+      },
+      {
+        question: `How do you optimize frontend performance? Can you describe specific techniques you've used to improve load times or rendering performance?`,
+        assessment: `Web performance optimization skills and understanding of browser internals`,
+        tip: `Reference techniques like code splitting, lazy loading, image optimization, memoization. This aligns with your web development practices.`
+      },
+      {
+        question: `Describe your approach to testing frontend applications. What tools and methodologies do you prefer?`,
+        assessment: `Testing knowledge, quality assurance mindset, and development best practices`,
+        tip: `Mention Jest for unit testing, discuss how you ensure UI reliability. Reference your testing and QA experience.`
+      }
+    ];
+  }
+
+  function generateFullStackDeveloperQuestions(jobDetails, skills, responsibilities) {
+    return [
+      {
+        question: `Describe a full-stack project you've built from scratch. Walk me through your architectural decisions for both frontend and backend.`,
+        assessment: `Full-stack architecture knowledge, system design, and project ownership`,
+        tip: `Reference your SvelteKit full-stack training and your capstone project. Discuss how frontend and backend communicate through APIs.`
+      },
+      {
+        question: `How do you design APIs to be consumed by frontend applications? What principles do you follow for RESTful design?`,
+        assessment: `Backend design, API patterns, and integration thinking`,
+        tip: `Discuss REST API design principles from your technical IT skills. Mention HTTP methods, status codes, documentation, and versioning strategies.`
+      },
+      {
+        question: `Tell us about database design and optimization. How do you choose between different database types, and how do you optimize queries?`,
+        assessment: `Database modeling, performance optimization, and data architecture`,
+        tip: `Reference your PostgreSQL, MySQL, and MongoDB experience. Discuss when to use relational vs document databases, indexing, and query optimization.`
+      },
+      {
+        question: `How do you approach deploying a full-stack application to production? What steps do you take to ensure reliability and scalability?`,
+        assessment: `DevOps mindset, deployment knowledge, and production readiness`,
+        tip: `Mention CI/CD pipelines, GitHub Actions, environment management, monitoring, and error handling strategies.`
+      },
+      {
+        question: `Describe your experience with modern full-stack frameworks like SvelteKit, Next.js, or similar. What advantages did you find?`,
+        assessment: `Knowledge of modern development practices, framework selection, and productivity`,
+        tip: `Reference your SvelteKit training. Discuss server-side rendering, file-based routing, and full-stack benefits you appreciate.`
+      }
+    ];
+  }
+
+  function generateDevOpsEngineerQuestions(jobDetails, skills, responsibilities) {
+    return [
+      {
+        question: `Describe your experience with containerization and orchestration platforms like Docker and Kubernetes. Can you walk through a deployment scenario?`,
+        assessment: `Container expertise, orchestration knowledge, and infrastructure experience`,
+        tip: `Reference your Docker knowledge. Discuss container isolation, image building, networking, and orchestration concepts.`
+      },
+      {
+        question: `Tell us about your CI/CD pipeline experience. How have you set up automated testing and deployment workflows?`,
+        assessment: `Automation expertise, pipeline design, and deployment practices`,
+        tip: `Mention GitHub Actions experience. Discuss stages like build, test, deploy. Reference your CI/CD pipeline skills.`
+      },
+      {
+        question: `How do you approach infrastructure as code? What tools have you used, and what are the benefits you've seen?`,
+        assessment: `Infrastructure thinking, code-based configuration, and automation mindset`,
+        tip: `Discuss configuration management, reproducibility, and version control for infrastructure.`
+      },
+      {
+        question: `Describe your experience with monitoring and logging in production environments. How do you identify and respond to issues?`,
+        assessment: `Production operations knowledge, troubleshooting skills, and observability`,
+        tip: `Reference your debugging and troubleshooting skills. Discuss log aggregation, metrics, and incident response.`
+      },
+      {
+        question: `How do you balance security and operational efficiency? What security practices have you implemented in your infrastructure?`,
+        assessment: `Security mindset, operational best practices, and risk management`,
+        tip: `Reference your cybersecurity training. Discuss network security, access control, and secure deployment practices.`
+      }
+    ];
+  }
+
+  function generateQAEngineerQuestions(jobDetails, skills, responsibilities) {
+    return [
+      {
+        question: `Describe your test automation strategy. What types of testing do you prioritize and why?`,
+        assessment: `QA methodology, automation skills, and testing mindset`,
+        tip: `Discuss unit, integration, and end-to-end testing. Reference tools like Jest, Selenium, Postman.`
+      },
+      {
+        question: `How do you approach finding and documenting bugs? Can you describe a complex bug you identified and how it was resolved?`,
+        assessment: `Bug analysis, documentation, and communication skills`,
+        tip: `Show methodical approach: reproduction steps, expected vs actual behavior. Reference your debugging skills.`
+      },
+      {
+        question: `Tell us about your experience with API testing. What tools have you used and what aspects do you focus on?`,
+        assessment: `API testing expertise, tools proficiency, and technical depth`,
+        tip: `Mention Postman, REST Assured. Discuss testing response codes, payload validation, and edge cases.`
+      },
+      {
+        question: `How do you collaborate with developers to improve code quality? Do you practice any test-driven development?`,
+        assessment: `Teamwork, development collaboration, and quality culture`,
+        tip: `Reference your testing experience, TDD methodology, code review participation.`
+      },
+      {
+        question: `Describe how you evaluate test coverage. What makes a good test suite in your opinion?`,
+        assessment: `Quality thinking, coverage understanding, and test efficiency`,
+        tip: `Discuss meaningful coverage metrics, maintainability, reliability, and how tests support CI/CD flows.`
+      }
+    ];
+  }
+
+  function generateSecurityEngineerQuestions(jobDetails, skills, responsibilities) {
+    return [
+      {
+        question: `Describe your experience with security assessments and penetration testing. Can you walk through your methodology?`,
+        assessment: `Security testing knowledge, vulnerability identification, and methodical approach`,
+        tip: `Reference your cybersecurity training and penetration testing basics. Discuss OWASP top 10 and threat modeling.`
+      },
+      {
+        question: `How do you approach secure coding practices? What are the most common security vulnerabilities you've seen developers introduce?`,
+        assessment: `Secure development knowledge, code review skills, and developer education`,
+        tip: `Mention SQL injection, XSS, CSRF, authentication flaws. Reference your secure coding knowledge.`
+      },
+      {
+        question: `Tell us about your experience with encryption and key management. How do you approach data protection?`,
+        assessment: `Cryptography knowledge, data protection thinking, and compliance awareness`,
+        tip: `Discuss encryption protocols, key rotation, and secure storage practices.`
+      },
+      {
+        question: `How do you stay informed about security threats and vulnerabilities? Can you describe a recent vulnerability that impacted your work?`,
+        assessment: `Security awareness, continuous learning, and threat intelligence`,
+        tip: `Reference security communities, CVE databases, and responsible disclosure practices.`
+      },
+      {
+        question: `Describe your approach to security compliance (e.g., GDPR, security standards). How do you ensure systems meet compliance requirements?`,
+        assessment: `Compliance knowledge, governance thinking, and regulatory awareness`,
+        tip: `Reference your Responsible Technology training. Discuss GDPR, data privacy, and compliance documentation.`
+      }
+    ];
+  }
+
+  function generateSeniorDeveloperQuestions(jobDetails, skills, responsibilities) {
+    return [
+      {
+        question: `Describe your approach to system architecture and design. How do you make technology choices and justify architectural decisions?`,
+        assessment: `System design expertise, decision-making ability, and technical leadership`,
+        tip: `Reference design patterns, scalability considerations, and trade-offs in your architecture thinking.`
+      },
+      {
+        question: `Tell us about your experience mentoring junior developers. How do you approach code reviews and knowledge sharing?`,
+        assessment: `Leadership, mentoring skills, and knowledge transfer`,
+        tip: `Reference your leadership skills and project direction. Discuss how you balance guidance with autonomy.`
+      },
+      {
+        question: `Describe a technical challenge you've overcome that resulted in significant learning or improvement. How did you approach it?`,
+        assessment: `Problem-solving at scale, technical depth, and growth mindset`,
+        tip: `Reference complex projects from your capstone or hackathons with architectural improvements.`
+      },
+      {
+        question: `How do you approach technical debt? When do you prioritize refactoring versus shipping new features?`,
+        assessment: `Strategic thinking, long-term vision, and pragmatism`,
+        tip: `Show balance between rapid delivery and code quality through maintainability focus.`
+      },
+      {
+        question: `Tell us about your philosophy on clean code and best practices. How do you ensure code quality in your team?`,
+        assessment: `Code quality standards, leadership through example, and development practices`,
+        tip: `Reference SOLID principles and DRY principles. Discuss how you establish and maintain standards.`
+      }
+    ];
+  }
+
+  function generateJuniorDeveloperQuestions(jobDetails, skills, responsibilities) {
+    const primarySkill = skills[0] || 'the required tech stack';
+    
+    return [
+      {
+        question: `Tell us about your learning journey with ${primarySkill}. What resources have helped you most, and what projects have you built?`,
+        assessment: `Learning ability, self-motivation, and hands-on experience`,
+        tip: `Reference your certifications, workshops, and practical projects. Show enthusiasm for continuous learning.`
+      },
+      {
+        question: `Describe the most challenging project you've worked on. What did you struggle with, and how did you overcome it?`,
+        assessment: `Problem-solving, resilience, and growth mindset`,
+        tip: `Reference your capstone, hackathon projects. Focus on what you learned rather than perfection.`
+      },
+      {
+        question: `How do you approach learning new technologies and frameworks? Can you give an example from your recent experience?`,
+        assessment: `Learning strategy, adaptability, and technical curiosity`,
+        tip: `Reference your recent SvelteKit, n8n, or Python certifications. Show systematic learning approach.`
+      },
+      {
+        question: `Tell us about your experience working with version control and collaborating with other developers.`,
+        assessment: `Git proficiency, teamwork, and code collaboration basics`,
+        tip: `Reference GitHub experience, pull requests, code reviews, and your JPCS involvement.`
+      },
+      {
+        question: `What excites you most about software development, and how does this role align with your career goals?`,
+        assessment: `Motivation, alignment, and long-term thinking`,
+        tip: `Reference your capstone passion, hackathon enthusiasm, and genuine interest in growth.`
+      }
+    ];
+  }
+
+  function generateGenericDeveloperQuestions(jobDetails, skills, responsibilities) {
+    const primarySkill = skills[0] || 'the required tech stack';
+    const resp = responsibilities[0] || 'develop software solutions';
+    
+    return [
+      {
+        question: `Tell us about your experience with ${primarySkill || 'software development'}. How have you applied it in your projects or work?`,
+        assessment: `Technical expertise and practical application`,
+        tip: `Reference specific projects where you've used these technologies. Show depth of knowledge.`
+      },
+      {
+        question: `Describe a time when you had to ${resp}. What was your approach and what was the outcome?`,
+        assessment: `Problem-solving methodology and technical decision-making`,
+        tip: `Use STAR method (Situation, Task, Action, Result). Reference your capstone or hackathons.`
+      },
+      {
+        question: `How do you ensure code quality and maintainability in your projects?`,
+        assessment: `Development best practices and professional standards`,
+        tip: `Reference SOLID principles, clean code, testing, and documentation practices.`
+      },
+      {
+        question: `Tell us about your experience collaborating with teams or in agile environments.`,
+        assessment: `Teamwork, communication, and agile understanding`,
+        tip: `Reference your Agile knowledge, JPCS leadership, and workshop participation.`
+      },
+      {
+        question: `What are your professional goals, and how does this position align with them?`,
+        assessment: `Motivation, career thinking, and alignment with role`,
+        tip: `Reference growth through certifications, events, and projects showing genuine enthusiasm.`
+      }
+    ];
+  }
+
   function displayInterviewSummary() {
     const avgScore = Math.round(questionScores.reduce((a, b) => a + b, 0) / questionScores.length);
     
@@ -738,10 +1346,10 @@
     chatLog.appendChild(summaryMsg);
     chatLog.scrollTop = chatLog.scrollHeight;
     
-    let content = `✨ Interview Complete! ✨\n\n`;
-    content += `📊 Average Match Score: ${avgScore}%\n`;
+    let content = `Assessment Complete\n\n`;
+    content += `Average Match Score: ${avgScore}%\n`;
     content += `Initial Match Score: ${currentMatchScore}%\n\n`;
-    content += `Individual Scores:\n`;
+    content += `Question Scores:\n`;
     questionScores.forEach((score, i) => {
       content += `  Q${i + 1}: ${score}%\n`;
     });
@@ -863,24 +1471,24 @@
         // Tailor feedback based on match score
         if (currentMatchScore >= 70) {
           feedbackMessages = [
-            "Excellent technical insight! Let's explore another area:",
-            "That demonstrates strong expertise. Here's my next question:",
-            "Great articulation of that concept. Moving on:",
-            "I appreciate the depth of your knowledge. Let's continue:"
+            "Response noted. Proceeding to next assessment area:",
+            "Acknowledged. Continuing with technical evaluation:",
+            "Recorded. Moving to the next domain:",
+            "Assessment recorded. Proceeding:"
           ];
         } else if (currentMatchScore >= 50) {
           feedbackMessages = [
-            "Good answer! Here's another question to explore:",
-            "I see your perspective. Let me ask about:",
-            "That's solid. Let's dig deeper into:",
-            "Thanks for that response. Next question:"
+            "Response received. Next question:",
+            "Noted. Proceeding to the following area:",
+            "Acknowledged. Moving forward:",
+            "Assessment recorded. Next question:"
           ];
         } else {
           feedbackMessages = [
-            "I appreciate your willingness to learn. Let's explore further:",
-            "Good starting point. Here's another area we should cover:",
-            "That's helpful context. Moving to the next topic:",
-            "Let's continue building your understanding:"
+            "Response noted. Continuing assessment:",
+            "Acknowledged. Proceeding to next area:",
+            "Response recorded. Moving to next topic:",
+            "Continuing evaluation:"
           ];
         }
         
@@ -930,7 +1538,7 @@
   populateJobSelector();
 
   // Initialize with default Q&A mode
-  appendMsg("Hello! I'm your resume AI assistant. Ask me anything about your background.", 'bot');
+  appendMsg("Welcome to the Interview Assistant. Please provide your inquiries regarding your professional background.", 'bot');
 
   // reposition on resize to avoid clipping
   window.addEventListener('resize', ensurePanelVisible);
