@@ -44,10 +44,8 @@
     <div class="col card">
       <h2>Quick Links</h2>
       <ul>
-        <li><a href="/src/mcp-server/server.js" target="_blank">src/mcp-server/server.js</a></li>
-        <li><a href="/.vscode/mcp.json" target="_blank">.vscode/mcp.json</a></li>
-        <li><a href="/scripts/capture_mcp_evidence.ps1" target="_blank">scripts/capture_mcp_evidence.ps1</a></li>
-        <li><a href="/evidence/mcp_response_20260217_190837.json" target="_blank">Raw JSON</a></li>
+        <li><a href="./mcp_response_20260217_190837.json" target="_blank">Raw JSON Evidence</a></li>
+        <li><a href="javascript:alert('Available after running a query')">Query Results</a></li>
       </ul>
     </div>
   </div>
@@ -55,7 +53,7 @@
   <script>
     async function load() {
       // load saved example evidence (optional)
-      const url = '/evidence/mcp_response_20260217_190837.json';
+      const url = './mcp_response_20260217_190837.json';
       try {
         const r = await fetch(url);
         if (!r.ok) throw new Error('HTTP '+r.status);

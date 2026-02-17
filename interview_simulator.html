@@ -599,6 +599,13 @@ Format your response as clear numbered questions with assessment details.`;
             const scoreColor = matchScore >= 70 ? '#4CAF50' : matchScore >= 50 ? '#FF9800' : '#f44336';
 
             questionsContainer.innerHTML = `
+                <div class="match-score" style="background: linear-gradient(135deg, ${scoreColor}, ${adjustBrightness(scoreColor, -20)});">
+                    <div class="score-value">${matchScore}%</div>
+                    <div class="score-label" style="opacity: 0.95;">${getScoreInterpretation(matchScore)}</div>
+                </div>
+
+                ${renderMatchBreakdown(jobDetails)}
+
                 <div class="tips-section">
                     <strong>Assessment Guidelines:</strong><br>
                     • Demonstrate alignment between your experience and the technical requirements<br>

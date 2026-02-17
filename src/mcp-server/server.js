@@ -41,7 +41,10 @@ function getTextFromId(id) {
     if (typeof val === 'object') return `Education: ${key} - ${val.school} (${val.years})`;
     return `Education: ${key} - ${val}`;
   }
-  if (category === 'cert') return `Certification: ${resume.certifications[Number(key)]}`;
+  if (category === 'cert') {
+    const cert = resume.certifications[Number(key)];
+    return cert ? `Certification: ${cert.title} (${cert.org}, ${cert.date})` : null;
+  }
   if (category === 'event') {
     const e = resume.events[Number(key)];
     return e ? `Event: ${e.title} — ${e.venue} on ${e.date}` : null;
