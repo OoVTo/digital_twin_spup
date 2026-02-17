@@ -9,6 +9,7 @@
     { id: 'education', title: 'Educational Background' },
     { id: 'certs', title: 'Certifications' },
     { id: 'events', title: 'Seminars / Workshops / Conferences' },
+    { id: 'skills', title: 'Skills' },
     { id: 'affiliations', title: 'Affiliations' }
   ];
 
@@ -35,6 +36,7 @@
       case 'education': return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 1 7l11 5 9-4.09V17h2V7L12 2z"/></svg>`;
       case 'certs': return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3 6 6 .5-4.5 4 1 6L12 16l-5.5 3.5 1-6L3 8.5 9 8 12 2z"/></svg>`;
       case 'events': return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM5 9h14v10H5V9z"/></svg>`;
+      case 'skills': return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
       case 'affiliations': return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm6 2h-2.47c-.45.34-.98.62-1.58.8L12 22l-2.95-5.18c-.6-.18-1.13-.46-1.58-.8H5c0 2.21 3.58 4 7 4s7-1.79 7-4z"/></svg>`;
       default: return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"/></svg>`;
     }
@@ -106,6 +108,39 @@
         // reveal animation
         setTimeout(()=>wrap.classList.add('visible'), 60);
       });
+    }
+    if (id === 'skills') {
+      const h = document.createElement('h2'); h.className = 'section-title'; h.textContent = 'Skills';
+      contentEl.appendChild(h);
+      
+      if (resume.skills) {
+        Object.entries(resume.skills).forEach(([category, skillList]) => {
+          if (Array.isArray(skillList) && skillList.length > 0) {
+            const catDiv = document.createElement('div'); catDiv.className = 'skill-category';
+            const catTitle = document.createElement('h3'); 
+            catTitle.textContent = category.replace(/([A-Z])/g, ' $1').replace(/^./, s=>s.toUpperCase()).trim();
+            catTitle.className = 'skill-category-title';
+            catDiv.appendChild(catTitle);
+            
+            const skillList_el = document.createElement('ul'); skillList_el.className = 'skill-list';
+            skillList.forEach(skill => {
+              const li = document.createElement('li'); 
+              li.textContent = skill;
+              li.addEventListener('click', function(e) {
+                // Remove active class from all skill items
+                document.querySelectorAll('.skill-list li').forEach(item => {
+                  item.classList.remove('active');
+                });
+                // Add active class to clicked item
+                this.classList.add('active');
+              });
+              skillList_el.appendChild(li);
+            });
+            catDiv.appendChild(skillList_el);
+            contentEl.appendChild(catDiv);
+          }
+        });
+      }
     }
     if (id === 'affiliations') {
       const h = document.createElement('h2'); h.className = 'section-title'; h.textContent = 'Affiliations';
@@ -193,6 +228,18 @@
     if (/(degree|studying|education|capstone)/.test(s)) return `Degree: ${resume.education.degree} at ${resume.education.school} (${resume.education.years}). Capstone: ${resume.education.capstone}`;
     if (/(certif|certificate)/.test(s)) return `There are ${resume.certifications.length} certifications. Ask "list certifications" to see them.`;
     if (/list certifications/.test(s)) return resume.certifications.join('\n');
+    if (/(skill|technical|programming|framework|language)/.test(s)) {
+      let skillsInfo = 'Here are my skills:\n\n';
+      if (resume.skills) {
+        Object.entries(resume.skills).forEach(([category, skillList]) => {
+          if (Array.isArray(skillList) && skillList.length > 0) {
+            const catName = category.replace(/([A-Z])/g, ' $1').replace(/^./, c=>c.toUpperCase()).trim();
+            skillsInfo += `${catName}: ${skillList.join(', ')}\n`;
+          }
+        });
+      }
+      return skillsInfo;
+    }
     if (/(affiliat|organization|member)/.test(s)) return resume.affiliations.join('\n');
     // events by title
     for(const ev of resume.events){ if (s.includes(ev.title.toLowerCase().slice(0,20))) return `${ev.title} — ${ev.venue} (${ev.date})`; }
@@ -202,7 +249,7 @@
     }
     if (/list events/.test(s)) return resume.events.map(e=>`${e.title} — ${e.date}`).join('\n');
 
-    return "I can answer questions about personal data, education, certifications, events, and affiliations. Try: \"What's my degree?\" or \"List events\".";
+    return "I can answer questions about personal data, education, certifications, events, skills, and affiliations. Try: \"What's my degree?\" or \"List events\".";
   }
 
   async function queryServer(message){
