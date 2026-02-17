@@ -9,6 +9,15 @@ const port = process.env.MCP_PORT || 4000;
 
 app.use(express.json());
 
+// Simple CORS for browser-based evidence viewer
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 // Initialize Upstash Vector client (if configured)
 let upstashIndex = null;
 if (process.env.UPSTASH_VECTOR_REST_URL && process.env.UPSTASH_VECTOR_REST_TOKEN) {
@@ -102,7 +111,7 @@ app.post('/mcp/query', async (req, res) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
         },
-        body: JSON.stringify({ model: 'gpt-3.5-turbo', messages: [{ role: 'user', content: prompt }], max_tokens: 300 })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], max_tokens: 300 })
       });
       const j = await resp.json();
       ragReply = j?.choices?.[0]?.message?.content || null;
