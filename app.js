@@ -174,6 +174,9 @@
   let currentMode = 'qa'; // 'qa' or 'interview'
   let currentInterviewJob = null;
   let currentMatchScore = null;
+  let interviewQuestionCount = 0; // Track which question (0-5)
+  let userAnswers = []; // Store answers for behavioral analysis
+  let behavioralScore = null; // Store behavioral analysis score
 
   // Match calculation functions (from interview_simulator.html)
   function calculateMatchScore(jobDetails) {
@@ -381,14 +384,17 @@
         // Update the last message with animated score
         const lastMsg = chatLog.lastChild;
         if (lastMsg) {
-          lastMsg.textContent = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${animatedScore}% 🔄`;
+          lastMsg.innerHTML = `Welcome to the ${jobDetails.title} interview! 🎤<br><br>📊 Your Match Score: ${animatedScore}% 🔄`;
         }
         
         if (progress < 1) {
           requestAnimationFrame(animateScore);
         } else {
-          // Animation complete, show final message with interpretation
-          lastMsg.textContent = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${currentMatchScore}% (${scoreInterpretation})\n\nLet's begin with some interview questions!`;
+          // Animation complete, show final message with interpretation and job details
+          const jobDescriptionText = jobDetails.description || 'Exciting opportunity awaiting!';
+          const cleanDescription = jobDescriptionText.substring(0, 200) + (jobDescriptionText.length > 200 ? '...' : '');
+          
+          lastMsg.innerHTML = `Welcome to the ${jobDetails.title} interview! 🎤<br><br>📊 Your Match Score: ${currentMatchScore}% (${scoreInterpretation})<br><br><strong>About this role:</strong><br>${cleanDescription}<br><br><strong>Company:</strong> ${jobDetails.company} | <strong>View Full Posting:</strong> <a href="${currentInterviewJob}" target="_blank" style="color: #ff6a00; text-decoration: underline;">Click here</a><br><br>Let's begin with some interview questions!`;
           
           // Generate first question
           setTimeout(() => {
@@ -411,20 +417,27 @@
       company: '',
       location: '',
       type: '',
+      description: '',
       responsibilities: [],
       skills: [],
       experience: [],
-      salary: ''
+      salary: '',
+      jobSource: ''
     };
 
     let currentSection = null;
+    let descriptionLines = [];
 
-    for (let line of lines) {
-      line = line.trim();
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
       if (line.startsWith('# ')) {
         parsed.title = line.replace(/^# /, '').trim();
       } else if (line.startsWith('## Company')) {
         currentSection = 'company';
+      } else if (line.startsWith('## Job Source')) {
+        currentSection = 'jobSource';
+      } else if (line.startsWith('## About the Role')) {
+        currentSection = 'description';
       } else if (line.startsWith('## Key Responsibilities')) {
         currentSection = 'responsibilities';
       } else if (line.startsWith('## Required Skills')) {
@@ -442,8 +455,13 @@
         }
       } else if (currentSection === 'company' && line && !line.startsWith('**') && parsed.company === '') {
         parsed.company = line;
+      } else if (currentSection === 'description' && line && !line.startsWith('##')) {
+        descriptionLines.push(line);
       }
     }
+
+    // Clean up description (remove empty lines at start/end)
+    parsed.description = descriptionLines.join(' ').trim();
 
     return parsed;
   }
@@ -451,44 +469,140 @@
   function generateInterviewQuestion(jobDetails) {
     showTyping(true);
     
-    // Tailor questions based on match score
-    let questions = [];
+    let question = '';
     
-    if (currentMatchScore >= 70) {
-      // Strong candidate - deeper technical questions
-      questions = [
-        `Tell me about your experience with ${jobDetails.skills[0] || 'the required tech stack'}. How have you applied it in real projects?`,
-        `Describe a time when you had to ${jobDetails.responsibilities[0]?.toLowerCase() || 'solve a complex technical problem'}. What was your approach?`,
-        "What are your most significant technical accomplishments?",
-        "How do you approach learning new technologies?",
-        "Tell us about your experience with the technologies mentioned in the job description."
+    // First question: Technical (question 0)
+    if (interviewQuestionCount === 0) {
+      let questions = [];
+      
+      if (currentMatchScore >= 70) {
+        questions = [
+          `Tell me about your experience with ${jobDetails.skills[0] || 'the required tech stack'}. How have you applied it in real projects?`,
+          `Describe a time when you had to ${jobDetails.responsibilities[0]?.toLowerCase() || 'solve a complex technical problem'}. What was your approach?`,
+          "What are your most significant technical accomplishments?",
+          "How do you approach learning new technologies?",
+          "Tell us about your experience with the technologies mentioned in the job description."
+        ];
+      } else if (currentMatchScore >= 50) {
+        questions = [
+          `Tell us about your experience with ${jobDetails.skills[0] || 'software development'}.`,
+          "What interests you about this role?",
+          "How would you approach learning the skills you don't yet have?",
+          `Describe a project where you had to learn something new.`,
+          "What can you tell us about our technology stack?"
+        ];
+      } else {
+        questions = [
+          "Tell us about yourself and your tech background.",
+          "What interests you in transitioning to this role?",
+          "What are you willing to learn to succeed in this position?",
+          "Describe your approach to solving technical problems.",
+          "Why do you think you'd be a good fit despite the experience gap?"
+        ];
+      }
+      
+      question = questions[Math.floor(Math.random() * questions.length)];
+    } else if (interviewQuestionCount <= 5) {
+      // Questions 1-5: Behavioral/Attitude Assessment
+      const behavioralQuestions = [
+        "Describe a time when you had to work with a difficult team member. How did you handle it?",
+        "Tell me about a project where you failed or faced significant challenges. What did you learn from it?",
+        "How do you prioritize tasks when you have multiple deadlines? Can you give a specific example?",
+        "Describe your experience working in a team environment. What role do you typically play?",
+        "Tell me about a time you had to learn a new skill or technology quickly. How did you approach it?"
       ];
-    } else if (currentMatchScore >= 50) {
-      // Moderate candidate - balanced questions
-      questions = [
-        `Tell us about your experience with ${jobDetails.skills[0] || 'software development'}.`,
-        "What interests you about this role?",
-        "How would you approach learning the skills you don't yet have?",
-        `Describe a project where you had to learn something new.`,
-        "What can you tell us about our technology stack?"
-      ];
-    } else {
-      // Entry level / stretch role - foundational questions
-      questions = [
-        "Tell us about yourself and your tech background.",
-        "What interests you in transitioning to this role?",
-        "What are you willing to learn to succeed in this position?",
-        "Describe your approach to solving technical problems.",
-        "Why do you think you'd be a good fit despite the experience gap?"
-      ];
+      
+      const idx = interviewQuestionCount - 1;
+      question = behavioralQuestions[idx];
     }
     
-    const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
+    interviewQuestionCount++;
     
     setTimeout(() => {
       showTyping(false);
-      appendMsg(randomQuestion, 'bot');
+      appendMsg(question, 'bot');
     }, 1000);
+  }
+
+  function analyzeBehavioralResponse(answer) {
+    // Analyze the answer for behavioral/attitude indicators
+    const lowerAnswer = answer.toLowerCase();
+    let score = 50; // Base score
+    
+    // Positive indicators (teamwork, collaboration, learning)
+    const positiveKeywords = {
+      'team': 5, 'collaborate': 8, 'communication': 6, 'learn': 7, 'growth': 7,
+      'feedback': 6, 'adapt': 6, 'improve': 5, 'initiative': 8, 'responsibility': 6,
+      'empathy': 6, 'respect': 5, 'support': 4, 'mentor': 7, 'help': 4,
+      'problem-solving': 7, 'creative': 5, 'solution': 5, 'overcome': 6, 'challenge': 5
+    };
+    
+    // Negative indicators
+    const negativeKeywords = {
+      'blame': -8, 'fault': -6, 'never': -5, 'impossible': -7, 'quit': -10,
+      'avoided': -6, 'didn\'t': -3, 'conflict': -4, 'difficult': -2, 'lazy': -8
+    };
+    
+    // Scan for keywords
+    for (let keyword in positiveKeywords) {
+      if (lowerAnswer.includes(keyword)) {
+        score += positiveKeywords[keyword];
+      }
+    }
+    
+    for (let keyword in negativeKeywords) {
+      if (lowerAnswer.includes(keyword)) {
+        score += negativeKeywords[keyword];
+      }
+    }
+    
+    // Length consideration (thoughtful answers are longer)
+    const wordCount = answer.trim().split(/\s+/).length;
+    if (wordCount < 10) score -= 10; // Too short
+    else if (wordCount > 30) score += 3; // Thoughtful answer
+    
+    // Specificity (mentions concrete examples)
+    if (answer.includes('I') || answer.includes('me') || answer.includes('my')) {
+      score += 5; // Personal example
+    }
+    
+    // Normalize score to 0-100
+    score = Math.max(20, Math.min(100, score));
+    score = Math.round(score);
+    
+    return score;
+  }
+
+  function displayBehavioralScore(responses) {
+    const scores = responses.map(r => analyzeBehavioralResponse(r));
+    const avgBehavioralScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    
+    behavioralScore = avgBehavioralScore;
+    
+    // Interpretation
+    const interpretation = avgBehavioralScore >= 80 ? "Excellent - Strong Cultural Fit" :
+                          avgBehavioralScore >= 70 ? "Very Good - Strong Soft Skills" :
+                          avgBehavioralScore >= 60 ? "Good - Solid Behavioral Traits" :
+                          avgBehavioralScore >= 50 ? "Adequate - Room for Improvement" :
+                          "Needs Development - Focus on Soft Skills";
+    
+    const scoreColor = avgBehavioralScore >= 80 ? '#4CAF50' : 
+                       avgBehavioralScore >= 70 ? '#66BB6A' :
+                       avgBehavioralScore >= 60 ? '#FDD835' :
+                       avgBehavioralScore >= 50 ? '#FF9800' : '#f44336';
+    
+    const summaryMessage = `
+📊 Interview Summary
+━━━━━━━━━━━━━━━━━━━
+Technical Match: ${currentMatchScore}%
+Behavioral/Attitude: ${avgBehavioralScore}%
+
+Overall Assessment:
+${interpretation}
+
+Great job completing the interview! Your responses demonstrate ${avgBehavioralScore >= 70 ? 'strong' : avgBehavioralScore >= 50 ? 'reasonable' : 'developing'} professional qualities.`;
+    
+    appendMsg(summaryMessage, 'bot');
   }
 
   function appendMsg(text, who='bot'){
@@ -595,6 +709,21 @@
 
     // Determine response based on mode
     if (currentMode === 'interview') {
+      // Store answer for behavioral analysis if in behavioral phase (questions 1-5)
+      if (interviewQuestionCount > 1) {
+        userAnswers.push(val);
+      }
+      
+      // Check if we've completed all 5 behavioral questions
+      if (interviewQuestionCount > 5) {
+        // All questions answered, show final behavioral score
+        showTyping(false);
+        chatInput.disabled = true;
+        chatInput.style.display = 'none'; // Hide input after interview ends
+        displayBehavioralScore(userAnswers);
+        return;
+      }
+      
       // Interview mode: provide match-aware feedback and ask next question
       setTimeout(() => {
         showTyping(false);
@@ -602,27 +731,38 @@
         
         let feedbackMessages = [];
         
-        // Tailor feedback based on match score
-        if (currentMatchScore >= 70) {
-          feedbackMessages = [
-            "Excellent technical insight! Let's explore another area:",
-            "That demonstrates strong expertise. Here's my next question:",
-            "Great articulation of that concept. Moving on:",
-            "I appreciate the depth of your knowledge. Let's continue:"
-          ];
-        } else if (currentMatchScore >= 50) {
-          feedbackMessages = [
-            "Good answer! Here's another question to explore:",
-            "I see your perspective. Let me ask about:",
-            "That's solid. Let's dig deeper into:",
-            "Thanks for that response. Next question:"
-          ];
+        // Different feedback for technical question vs behavioral questions
+        if (interviewQuestionCount <= 1) {
+          // Technical question feedback
+          if (currentMatchScore >= 70) {
+            feedbackMessages = [
+              "Excellent technical insight! Let's explore another area:",
+              "That demonstrates strong expertise. Here's my next question:",
+              "Great articulation of that concept. Moving on:",
+              "I appreciate the depth of your knowledge. Let's continue:"
+            ];
+          } else if (currentMatchScore >= 50) {
+            feedbackMessages = [
+              "Good answer! Here's another question to explore:",
+              "I see your perspective. Let me ask about:",
+              "That's solid. Let's dig deeper into:",
+              "Thanks for that response. Next question:"
+            ];
+          } else {
+            feedbackMessages = [
+              "I appreciate your willingness to learn. Let's explore further:",
+              "Good starting point. Here's another area we should cover:",
+              "That's helpful context. Moving to the next topic:",
+              "Let's continue building your understanding:"
+            ];
+          }
         } else {
+          // Behavioral question feedback
           feedbackMessages = [
-            "I appreciate your willingness to learn. Let's explore further:",
-            "Good starting point. Here's another area we should cover:",
-            "That's helpful context. Moving to the next topic:",
-            "Let's continue building your understanding:"
+            "Thanks for sharing that. Let me ask about another area:",
+            "I appreciate that perspective. Here's another question:",
+            "That's really helpful context. Moving on:",
+            "Great insight. Let me explore further:"
           ];
         }
         

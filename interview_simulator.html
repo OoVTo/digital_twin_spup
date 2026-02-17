@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Simulator - Digital Twin Resume</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            height: fit-content;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .job-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .job-item {
+            padding: 12px;
+            background: #f5f5f5;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .job-item:hover {
+            background: #e8f4ff;
+            border-color: #667eea;
+        }
+
+        .job-item.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+        }
+
+        .job-display {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .job-header {
+            margin-bottom: 20px;
+        }
+
+        .job-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .job-company {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .job-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .job-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .job-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .job-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .job-section li {
+            padding: 6px 0;
+            color: #555;
+            font-size: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .job-section li:before {
+            content: "▸";
+            color: #667eea;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .interview-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .interview-panel.active {
+            display: block;
+        }
+
+        .interview-header {
+            margin-bottom: 25px;
+        }
+
+        .interview-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .interview-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .questions-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .question-card {
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .question-num {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .question-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .suggestion {
+            background: #e8f4ff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .suggestion strong {
+            color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .match-score {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .score-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .score-label {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .tips-section {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .tips-section strong {
+            color: #ff9800;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                max-height: none;
+            }
+
+            .job-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .job-details {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .interview-panel {
+                grid-column: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>📋 Available Positions</h2>
+            <div class="job-list" id="jobList"></div>
+        </div>
+
+        <div class="main-content">
+            <div class="job-display" id="jobDisplay">
+                <div class="job-header">
+                    <div class="job-title">Select a Position</div>
+                    <div class="job-company">Choose a job from the list to begin interview simulation</div>
+                </div>
+            </div>
+
+            <div class="interview-panel" id="interviewPanel">
+                <div class="interview-header">
+                    <div class="interview-title" id="interviewJobTitle"></div>
+                    <div class="interview-subtitle">Interview Preparation Questions Based on Your Resume</div>
+                </div>
+                <div class="questions-container" id="questionsContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Generating customized interview questions...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script>
+        // Job data structure
+        const jobs = [
+            { file: 'jobs/01_junior_software_developer_linkedin.md', title: 'Junior Software Developer', company: 'TechVision Solutions' },
+            { file: 'jobs/02_full_stack_developer_indeed.md', title: 'Full Stack Developer', company: 'DataFlow Systems' },
+            { file: 'jobs/03_frontend_engineer_seek.md', title: 'Frontend Engineer', company: 'Creative Digital Agency' },
+            { file: 'jobs/04_devops_engineer_linkedin.md', title: 'DevOps Engineer', company: 'Cloud Infrastructure Inc.' },
+            { file: 'jobs/05_qa_test_engineer_seek.md', title: 'QA Test Engineer', company: 'Quality Software Solutions' }
+        ];
+
+        let currentJob = null;
+        let jobContents = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderJobList();
+            loadJobContents();
+        });
+
+        function renderJobList() {
+            const jobList = document.getElementById('jobList');
+            jobList.innerHTML = jobs.map((job, idx) => `
+                <div class="job-item" onclick="selectJob(${idx})">
+                    <strong>${job.title}</strong><br>
+                    <span style="font-size: 12px; opacity: 0.7;">${job.company}</span>
+                </div>
+            `).join('');
+        }
+
+        async function loadJobContents() {
+            for (let i = 0; i < jobs.length; i++) {
+                try {
+                    const response = await fetch(jobs[i].file);
+                    const text = await response.text();
+                    jobContents[i] = text;
+                } catch (error) {
+                    console.error(`Failed to load ${jobs[i].file}:`, error);
+                }
+            }
+        }
+
+        function selectJob(index) {
+            currentJob = index;
+            document.querySelectorAll('.job-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+            displayJob(index);
+        }
+
+        function displayJob(index) {
+            const job = jobs[index];
+            const content = jobContents[index] || 'Loading...';
+            const parsed = parseJobMarkdown(content);
+
+            const jobDisplay = document.getElementById('jobDisplay');
+            jobDisplay.innerHTML = `
+                <div class="job-header">
+                    <div class="job-title">${parsed.title || job.title}</div>
+                    <div class="job-company">${parsed.company || job.company}</div>
+                    <div class="job-meta">
+                        <div class="meta-item">📍 ${parsed.location || 'Australia'}</div>
+                        <div class="meta-item">💼 ${parsed.type || 'Full-time'}</div>
+                    </div>
+                </div>
+
+                <div class="job-details">
+                    <div class="job-section">
+                        <h3>Key Responsibilities</h3>
+                        <ul>
+                            ${parsed.responsibilities.slice(0, 5).map(r => `<li>${r}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="job-section">
+                        <h3>Required Skills</h3>
+                        <ul>
+                            ${parsed.skills.slice(0, 8).map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="startInterview(${index})">
+                        🎤 Start Interview Simulation
+                    </button>
+                    <button class="btn btn-secondary" onclick="viewFullJob(${index})">
+                        📄 View Full Description
+                    </button>
+                </div>
+            `;
+        }
+
+        function parseJobMarkdown(content) {
+            const lines = content.split('\n');
+            const parsed = {
+                title: '',
+                company: '',
+                location: '',
+                type: '',
+                responsibilities: [],
+                skills: [],
+                experience: [],
+                salary: ''
+            };
+
+            let currentSection = null;
+
+            for (let line of lines) {
+                line = line.trim();
+
+                if (line.startsWith('# ')) {
+                    parsed.title = line.replace(/^# /, '').trim();
+                } else if (line.startsWith('## Company')) {
+                    currentSection = 'company';
+                } else if (line.startsWith('## Key Responsibilities')) {
+                    currentSection = 'responsibilities';
+                } else if (line.startsWith('## Required Skills')) {
+                    currentSection = 'skills';
+                } else if (line.startsWith('## Experience')) {
+                    currentSection = 'experience';
+                } else if (line.startsWith('**Location:**')) {
+                    parsed.location = line.replace(/\*\*Location:\*\*/, '').trim();
+                } else if (line.startsWith('**Platform:**')) {
+                    // Get from details, skip
+                } else if (line.startsWith('- ')) {
+                    const item = line.replace(/^- /, '').trim();
+                    if (currentSection === 'responsibilities') {
+                        parsed.responsibilities.push(item);
+                    } else if (currentSection === 'skills') {
+                        parsed.skills.push(item);
+                    } else if (currentSection === 'experience') {
+                        parsed.experience.push(item);
+                    }
+                } else if (line.match(/^Full-time|^Part-time|^Contract/)) {
+                    parsed.type = line;
+                } else if (currentSection === 'company' && line && !line.startsWith('**') && parsed.company === '') {
+                    parsed.company = line;
+                }
+            }
+
+            if (!parsed.location) {
+                parsed.location = parsed.company ? `Based on job description` : 'Australia';
+            }
+
+            return parsed;
+        }
+
+        function viewFullJob(index) {
+            const content = jobContents[index];
+            window.open('data:text/plain;charset=utf-8,' + encodeURIComponent(content), '_blank');
+        }
+
+        async function startInterview(index) {
+            const job = jobs[index];
+            const jobContent = jobContents[index];
+            const parsed = parseJobMarkdown(jobContent);
+
+            document.getElementById('interviewJobTitle').textContent = `${parsed.title} Interview Simulation`;
+            document.getElementById('interviewPanel').classList.add('active');
+
+            // Scroll to interview panel
+            document.getElementById('interviewPanel').scrollIntoView({ behavior: 'smooth' });
+
+            // Generate questions via MCP server
+            await generateQuestions(index, parsed);
+        }
+
+        async function generateQuestions(index, jobDetails) {
+            const questionsContainer = document.getElementById('questionsContainer');
+
+            try {
+                const prompt = `Based on this job description for a ${jobDetails.title} position, generate 5 targeted interview questions that assess:
+1. Technical skills match: ${jobDetails.skills.slice(0, 3).join(', ')}
+2. Experience level: ${jobDetails.experience[0] || 'Entry level'}
+3. Role-specific responsibilities: ${jobDetails.responsibilities.slice(0, 2).join('; ')}
+
+For each question, provide:
+- The interview question
+- What this question assesses
+- Tips for answering based on the resume data available
+
+Format your response as clear numbered questions with assessment details.`;
+
+                const response = await fetch('http://localhost:4000/mcp/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: prompt, topK: 5 })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                renderQuestions(data.reply, jobDetails);
+
+            } catch (error) {
+                console.error('Error generating questions:', error);
+                questionsContainer.innerHTML = `
+                    <div class="tips-section">
+                        <strong>⚠️ Using Local Question Generation</strong><br>
+                        Could not reach MCP server. Showing pre-generated interview questions based on job requirements.
+                    </div>
+                    ${getLocalQuestions(jobDetails)}
+                `;
+            }
+        }
+
+        function renderQuestions(aiResponse, jobDetails) {
+            const questionsContainer = document.getElementById('questionsContainer');
+
+            // Parse AI response into structured questions
+            const questions = parseAIResponse(aiResponse, jobDetails);
+
+            const matchScore = calculateMatchScore(jobDetails);
+            const scoreColor = matchScore >= 70 ? '#4CAF50' : matchScore >= 50 ? '#FF9800' : '#f44336';
+
+            questionsContainer.innerHTML = `
+                <div class="match-score" style="background: linear-gradient(135deg, ${scoreColor}, ${adjustBrightness(scoreColor, -20)});">
+                    <div class="score-value">${matchScore}%</div>
+                    <div class="score-label" style="opacity: 0.95;">${getScoreInterpretation(matchScore)}</div>
+                </div>
+
+                ${renderMatchBreakdown(jobDetails)}
+
+                <div class="tips-section">
+                    <strong>💡 Interview Tips:</strong><br>
+                    • Focus on how your experience aligns with the specific tech stack and responsibilities<br>
+                    • Prepare concrete examples from your background for each required skill<br>
+                    • Research the company and industry trends before the interview
+                </div>
+
+                ${questions.map((q, idx) => `
+                    <div class="question-card">
+                        <div class="question-num">Question ${idx + 1}</div>
+                        <div class="question-text">${q.question}</div>
+                        <div class="suggestion">
+                            <strong>What this assesses:</strong> ${q.assessment}<br><br>
+                            <strong>Answer tip:</strong> ${q.tip}
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function renderMatchBreakdown(jobDetails) {
+            const resumeSkills = extractResumeSkills();
+            const jobSkills = parseJobSkills(jobDetails);
+            
+            // Find matched skills
+            const matchedSkills = [];
+            const missingSkills = [];
+
+            jobSkills.forEach(jobSkill => {
+                let found = false;
+                for (let resumeSkill of resumeSkills) {
+                    if (jobSkill.toLowerCase() === resumeSkill.toLowerCase() || 
+                        jobSkill.toLowerCase().includes(resumeSkill.toLowerCase()) || 
+                        resumeSkill.toLowerCase().includes(jobSkill.toLowerCase())) {
+                        matchedSkills.push(jobSkill);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    missingSkills.push(jobSkill);
+                }
+            });
+
+            const matchPercentage = jobSkills.length > 0 
+                ? Math.round((matchedSkills.length / jobSkills.length) * 100) 
+                : 0;
+
+            return `
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #333;">
+                        Skill Match: ${matchedSkills.length}/${jobSkills.length} (${matchPercentage}%)
+                    </div>
+                    ${matchedSkills.length > 0 ? `
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 5px;">✅ Skills You Have:</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                ${matchedSkills.slice(0, 8).map(s => `
+                                    <span style="background: #4CAF50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                        ${s}
+                                    </span>
+                                `).join('')}
+                                ${matchedSkills.length > 8 ? `
+                                    <span style="background: #ddd; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                        +${matchedSkills.length - 8} more
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${missingSkills.length > 0 ? `
+                        <div>
+                            <div style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 5px;">⚠️ Skills to Develop:</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                ${missingSkills.slice(0, 8).map(s => `
+                                    <span style="background: #ffebee; color: #c62828; padding: 4px 8px; border-radius: 4px; font-size: 12px; border: 1px solid #ef5350;">
+                                        ${s}
+                                    </span>
+                                `).join('')}
+                                ${missingSkills.length > 8 ? `
+                                    <span style="background: #ddd; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                        +${missingSkills.length - 8} more
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function getScoreInterpretation(score) {
+            if (score >= 85) return 'Excellent Match - Strong Candidate';
+            if (score >= 70) return 'Good Match - Well Qualified';
+            if (score >= 55) return 'Moderate Match - Good Foundation';
+            if (score >= 40) return 'Fair Match - Growth Opportunity';
+            return 'Entry Level Match - Stretch Role';
+        }
+
+        function adjustBrightness(color, percent) {
+            // Simple color brightness adjustment
+            return color; // Simplified for now
+        }
+
+        function parseAIResponse(response, jobDetails) {
+            // Try to extract structured questions from AI response
+            const questionRegex = /\d+\.\s*(.+?)(?=\n\n|\d+\.|$)/gs;
+            const matches = [...response.matchAll(questionRegex)];
+
+            if (matches.length > 0) {
+                return matches.slice(0, 5).map(match => ({
+                    question: match[1].split('\n')[0].trim(),
+                    assessment: 'Technical and behavioral competencies for this role',
+                    tip: 'Draw from your resume experience and align with job requirements'
+                }));
+            }
+
+            return getLocalQuestionsArray(jobDetails);
+        }
+
+        function getLocalQuestions(jobDetails) {
+            return getLocalQuestionsArray(jobDetails)
+                .map((q, idx) => `
+                    <div class="question-card">
+                        <div class="question-num">Question ${idx + 1}</div>
+                        <div class="question-text">${q.question}</div>
+                        <div class="suggestion">
+                            <strong>What this assesses:</strong> ${q.assessment}<br><br>
+                            <strong>Answer tip:</strong> ${q.tip}
+                        </div>
+                    </div>
+                `).join('');
+        }
+
+        function getLocalQuestionsArray(jobDetails) {
+            const skills = jobDetails.skills.slice(0, 3);
+            return [
+                {
+                    question: `Tell us about your experience with ${skills[0] || 'the required technical stack'}. How have you applied it in real projects?`,
+                    assessment: 'Technical depth and hands-on experience with core technologies',
+                    tip: 'Describe specific projects where you used these skills. Quantify the impact (e.g., "improved performance by 30%")'
+                },
+                {
+                    question: `Describe a time when you had to ${jobDetails.responsibilities[0]?.toLowerCase() || 'solve a complex technical problem'}. What was your approach?`,
+                    assessment: 'Problem-solving methodology and technical decision-making',
+                    tip: 'Use the STAR method (Situation, Task, Action, Result). Focus on your contribution and what you learned.'
+                },
+                {
+                    question: `Why are you interested in this role, and how do your skills align with our ${jobDetails.title} position?`,
+                    assessment: 'Motivation, job knowledge, and career alignment',
+                    tip: 'Research the company, reference specific skills from the job posting, and connect them to your experience'
+                },
+                {
+                    question: `How do you stay updated with latest developments in ${skills[1] || 'technology and industry trends'}?`,
+                    assessment: 'Continuous learning mindset and professional development',
+                    tip: 'Mention conferences, courses, side projects, tech blogs, or communities you follow'
+                },
+                {
+                    question: `Describe your experience working on a team. How do you handle disagreements with colleagues?`,
+                    assessment: 'Teamwork, communication, and conflict resolution',
+                    tip: 'Share a concrete example showing you can listen, adapt, and collaborate toward common goals'
+                }
+            ];
+        }
+
+        function calculateMatchScore(jobDetails) {
+            // Extract resume skills from window.resumeData
+            const resumeSkills = extractResumeSkills();
+            const jobSkillsList = parseJobSkills(jobDetails);
+
+            // Calculate skill matches - check for exact or partial matches
+            let skillMatches = 0;
+            const matchedSkills = [];
+
+            for (let jobSkill of jobSkillsList) {
+                const jobSkillLower = jobSkill.toLowerCase();
+                for (let resumeSkill of resumeSkills) {
+                    const resumeSkillLower = resumeSkill.toLowerCase();
+                    // Check for exact match or substring match
+                    if (jobSkillLower === resumeSkillLower || 
+                        jobSkillLower.includes(resumeSkillLower) || 
+                        resumeSkillLower.includes(jobSkillLower)) {
+                        skillMatches++;
+                        matchedSkills.push(jobSkill);
+                        break;
+                    }
+                }
+            }
+
+            // Calculate overall match percentage
+            let score = 0;
+
+            // Skill overlap (50% weight) - most important
+            const skillScore = jobSkillsList.length > 0 
+                ? (skillMatches / jobSkillsList.length) * 100 
+                : 50;
+            score += skillScore * 0.5;
+
+            // Experience level alignment (25% weight)
+            const resumeLevel = getResumeExperienceLevel();
+            const jobLevel = getJobExperienceLevel(jobDetails);
+            const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
+            score += levelAlignment * 0.25;
+
+            // Education & certifications relevance (15% weight)
+            const certRelevance = evaluateCertificateRelevance(jobDetails);
+            score += certRelevance * 0.15;
+
+            // Project/event experience (10% weight)
+            const projectRelevance = evaluateProjectExperience(jobDetails);
+            score += projectRelevance * 0.1;
+
+            // Floor at 15% minimum, cap at 92% maximum for realism
+            return Math.min(Math.max(Math.round(score), 15), 92);
+        }
+
+        function parseJobSkills(jobDetails) {
+            // Extract unique skills from job requirements
+            const skillsSet = new Set();
+            
+            // From job skills list
+            if (jobDetails.skills && Array.isArray(jobDetails.skills)) {
+                jobDetails.skills.forEach(skill => skillsSet.add(skill.trim()));
+            }
+
+            // From job responsibilities (extract keywords)
+            if (jobDetails.responsibilities && Array.isArray(jobDetails.responsibilities)) {
+                jobDetails.responsibilities.forEach(resp => {
+                    const keywords = extractTechKeywords(resp);
+                    keywords.forEach(kw => skillsSet.add(kw));
+                });
+            }
+
+            return Array.from(skillsSet);
+        }
+
+        function extractTechKeywords(text) {
+            // Extract common tech keywords from text
+            const keywords = [];
+            const techTerms = [
+                'python', 'javascript', 'java', 'c#', 'html', 'css', 'react', 'node.js', 'express',
+                'django', 'flask', 'rest api', 'sql', 'mongodb', 'git', 'docker', 'kubernetes',
+                'aws', 'azure', 'gcp', 'ci/cd', 'jenkins', 'testing', 'agile', 'scrum',
+                'typescript', 'angular', 'vue', 'bootstrap', 'tailwind', 'php', 'kotlin',
+                'ai', 'machine learning', 'automation', 'devops', 'linux', 'windows'
+            ];
+
+            const textLower = text.toLowerCase();
+            techTerms.forEach(term => {
+                if (textLower.includes(term)) {
+                    keywords.push(term);
+                }
+            });
+
+            return keywords;
+        }
+
+        function extractResumeSkills() {
+            const skills = [];
+
+            // Use the new skills data structure from resumeData
+            if (window.resumeData && window.resumeData.skills) {
+                Object.values(window.resumeData.skills).forEach(skillCategory => {
+                    if (Array.isArray(skillCategory)) {
+                        skillCategory.forEach(skill => {
+                            skills.push(skill.trim());
+                        });
+                    }
+                });
+            }
+
+            // Also extract from certifications
+            if (window.resumeData && window.resumeData.certifications) {
+                const certKeywords = [];
+                window.resumeData.certifications.forEach(cert => {
+                    const certLower = cert.toLowerCase();
+                    // Extract tech-related keywords
+                    if (certLower.includes('ai')) certKeywords.push('AI');
+                    if (certLower.includes('python')) certKeywords.push('Python');
+                    if (certLower.includes('automation')) certKeywords.push('Automation');
+                    if (certLower.includes('cybersecurity') || certLower.includes('security')) certKeywords.push('Cybersecurity');
+                    if (certLower.includes('ux')) certKeywords.push('UX Design');
+                    if (certLower.includes('fintech')) certKeywords.push('Fintech');
+                });
+                certKeywords.forEach(kw => {
+                    if (!skills.includes(kw)) {
+                        skills.push(kw);
+                    }
+                });
+            }
+
+            // Extract from events
+            if (window.resumeData && window.resumeData.events) {
+                const eventKeywords = [];
+                window.resumeData.events.forEach(event => {
+                    const eventLower = event.title.toLowerCase();
+                    if (eventLower.includes('ai')) eventKeywords.push('AI');
+                    if (eventLower.includes('python')) eventKeywords.push('Python');
+                    if (eventLower.includes('automation')) eventKeywords.push('Automation');
+                    if (eventLower.includes('svelte')) eventKeywords.push('SvelteKit');
+                    if (eventLower.includes('hackathon')) eventKeywords.push('Hackathon Experience');
+                });
+                eventKeywords.forEach(kw => {
+                    if (!skills.includes(kw)) {
+                        skills.push(kw);
+                    }
+                });
+            }
+
+            return skills.length > 0 ? skills : ['Learning', 'Problem-solving', 'Communication'];
+        }
+
+        function getResumeExperienceLevel() {
+            // Current student (2025-Present)
+            // Participated in hackathons, internships
+            // Returns: 1 (entry level/student with projects)
+            return 1;
+        }
+
+        function getJobExperienceLevel(jobDetails) {
+            // Parse job requirements to determine experience level
+            const experienceText = (jobDetails.experience || []).join(' ').toLowerCase();
+            const titleLower = (jobDetails.title || '').toLowerCase();
+
+            if (titleLower.includes('junior') || titleLower.includes('entry') || titleLower.includes('graduate')) {
+                return 1;
+            } else if (titleLower.includes('mid') || titleLower.includes('senior')) {
+                return 5;
+            } else if (titleLower.includes('lead') || titleLower.includes('principal') || titleLower.includes('architect')) {
+                return 7;
+            }
+
+            // Parse from experience text
+            if (experienceText.includes('0-1') || experienceText.includes('entry')) {
+                return 1;
+            } else if (experienceText.includes('1-2') || experienceText.includes('2-3')) {
+                return 2;
+            } else if (experienceText.includes('3-5') || experienceText.includes('3+') || experienceText.includes('4+')) {
+                return 4;
+            } else if (experienceText.includes('5+') || experienceText.includes('5-7')) {
+                return 5;
+            } else if (experienceText.includes('7+') || experienceText.includes('10+')) {
+                return 7;
+            }
+
+            return 3; // Default to mid-level
+        }
+
+        function calculateLevelAlignment(resumeLevel, jobLevel) {
+            // Calculate how well experience level aligns
+            // Perfect match = 100%
+            // Entry person applying for junior role = 100%
+            // Entry person applying for senior role = 40%
+            // Entry person applying for lead role = 20%
+
+            const difference = Math.abs(resumeLevel - jobLevel);
+
+            if (difference === 0) {
+                return 100; // Perfect match
+            } else if (difference === 1) {
+                return 80; // One level off
+            } else if (difference === 2) {
+                return 60; // Two levels off
+            } else if (difference >= 3 && resumeLevel < jobLevel) {
+                return 40; // Significantly under-experienced
+            } else if (difference >= 3 && resumeLevel > jobLevel) {
+                return 70; // Over-qualified (neutral/positive)
+            }
+
+            return 50;
+        }
+
+        function evaluateCertificateRelevance(jobDetails) {
+            // Check how many certifications are relevant to the job
+            if (!window.resumeData || !window.resumeData.certifications) {
+                return 0.5;
+            }
+
+            const jobTitle = (jobDetails.title || '').toLowerCase();
+            const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
+            
+            let relevantCerts = 0;
+
+            window.resumeData.certifications.forEach(cert => {
+                const certLower = cert.toLowerCase();
+                
+                // Check for relevance
+                if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && certLower.includes('ai')) {
+                    relevantCerts++;
+                } else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && 
+                          (certLower.includes('sveltekit') || certLower.includes('framework'))) {
+                    relevantCerts++;
+                } else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && 
+                          certLower.includes('fintech')) {
+                    relevantCerts++;
+                } else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && 
+                          certLower.includes('automation')) {
+                    relevantCerts++;
+                } else if ((jobTitle.includes('cybersecurity') || jobSkills.includes('security')) && 
+                          certLower.includes('cyber')) {
+                    relevantCerts++;
+                }
+            });
+
+            // Score: 0-1 based on relevant certs out of 32 total
+            const totalCerts = window.resumeData.certifications.length || 32;
+            return Math.min(0.5 + (relevantCerts / totalCerts) * 0.5, 1);
+        }
+
+        function evaluateProjectExperience(jobDetails) {
+            // Check how many events/projects are relevant
+            if (!window.resumeData || !window.resumeData.events) {
+                return 0.5;
+            }
+
+            const jobTitle = (jobDetails.title || '').toLowerCase();
+            const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
+            
+            let relevantEvents = 0;
+
+            window.resumeData.events.forEach(event => {
+                const eventLower = event.title.toLowerCase();
+                
+                if (eventLower.includes('hackathon')) {
+                    relevantEvents++; // All hackathons show project experience
+                } else if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && eventLower.includes('ai')) {
+                    relevantEvents++;
+                } else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && 
+                          eventLower.includes('automation')) {
+                    relevantEvents++;
+                } else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && 
+                          eventLower.includes('framework')) {
+                    relevantEvents++;
+                } else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && 
+                          eventLower.includes('fintech')) {
+                    relevantEvents++;
+                }
+            });
+
+            // Score: 0-1 based on relevant events out of 21 total
+            const totalEvents = window.resumeData.events.length || 21;
+            return Math.min(0.5 + (relevantEvents / totalEvents) * 0.5, 1);
+        }
+    </script>
+</body>
+</html>
