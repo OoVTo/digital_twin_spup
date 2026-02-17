@@ -55,52 +55,88 @@ function extractResumeSections() {
     }
   });
 
-  // Certifications
+  // Certifications with detailed descriptions
   resumeData.certifications.forEach((cert, index) => {
+    const isObject = typeof cert === 'object' && cert.title;
+    const title = isObject ? cert.title : cert;
+    const desc = isObject ? cert.desc : '';
+    
     sections.push({
       id: `cert_${index}`,
-      data: `Certification: ${cert}`,
-      metadata: { category: 'certifications', index }
+      data: `Certification: ${title}${desc ? '. ' + desc : ''}`,
+      metadata: { category: 'certifications', index, title, org: isObject ? cert.org : '' }
     });
   });
 
-  // Events
+  // Events with detailed descriptions
   resumeData.events.forEach((event, index) => {
+    const eventData = `Event: ${event.title} at ${event.venue} on ${event.date}${event.desc ? '. ' + event.desc : ''}`;
+    
     sections.push({
       id: `event_${index}`,
-      data: `Event: ${event.title} at ${event.venue} on ${event.date}`,
-      metadata: { category: 'events', index }
+      data: eventData,
+      metadata: { category: 'events', index, title: event.title }
     });
   });
 
-  // Affiliations
+  // Affiliations with detailed role descriptions
   resumeData.affiliations.forEach((affiliation, index) => {
+    const isObject = typeof affiliation === 'object' && affiliation.role;
+    const roleInfo = isObject ? `${affiliation.role} at ${affiliation.organization} (${affiliation.period})` : affiliation;
+    const desc = isObject ? affiliation.desc : '';
+    
     sections.push({
       id: `affiliation_${index}`,
-      data: `Affiliation: ${affiliation}`,
+      data: `Affiliation: ${roleInfo}${desc ? '. ' + desc : ''}`,
       metadata: { category: 'affiliations', index }
     });
   });
 
-  // Skills
+  // Skills with detailed information
   if (resumeData.skills) {
     Object.entries(resumeData.skills).forEach(([category, skillList]) => {
       const categoryName = category.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
       
       if (Array.isArray(skillList)) {
-        sections.push({
-          id: `skills_${category}`,
-          data: `Skills - ${categoryName}: ${skillList.join(', ')}`,
-          metadata: { category: 'skills', subcategory: categoryName }
-        });
-
-        // Also add individual skill entries for better matching
+        // Create category-level summary
+        let categorySummary = [];
+        let detailedSkillsText = [];
+        
         skillList.forEach((skill, index) => {
+          let skillName = '';
+          let skillDetails = '';
+          
+          // Handle both object and string formats
+          if (typeof skill === 'object') {
+            skillName = skill.area || skill.lang || skill.name || skill.tool || skill.system || skill.practice || skill.skill || '';
+            // Combine all available detail fields
+            skillDetails = [skill.level, skill.proficiency, skill.details, skill.useCases, skill.examples, skill.expertise, skill.usage, skill.description, skill.category]
+              .filter(d => d)
+              .join('; ');
+          } else {
+            skillName = skill;
+          }
+          
+          categorySummary.push(skillName);
+          
+          // Add detailed entry for each skill
           sections.push({
             id: `skill_${category}_${index}`,
-            data: `Skill: ${skill} (${categoryName})`,
-            metadata: { category: 'skills', subcategory: categoryName, skill }
+            data: `Skill: ${skillName}${skillDetails ? ' (' + skillDetails + ')' : ''} in ${categoryName}`,
+            metadata: { 
+              category: 'skills', 
+              subcategory: categoryName, 
+              skill: skillName,
+              details: skillDetails
+            }
           });
+        });
+        
+        // Add category summary
+        sections.push({
+          id: `skills_${category}`,
+          data: `Skills - ${categoryName}: ${categorySummary.join(', ')}`,
+          metadata: { category: 'skills', subcategory: categoryName }
         });
       }
     });

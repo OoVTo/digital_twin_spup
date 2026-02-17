@@ -240,13 +240,36 @@
   function extractResumeSkills() {
     const skills = [];
     if (window.resumeData && window.resumeData.skills) {
-      Object.values(window.resumeData.skills).forEach(skillCategory => {
-        if (Array.isArray(skillCategory)) {
-          skillCategory.forEach(skill => { skills.push(skill.trim()); });
-        }
-      });
+      // Extract from new detailed structure
+      if (window.resumeData.skills.programmingLanguages && Array.isArray(window.resumeData.skills.programmingLanguages)) {
+        window.resumeData.skills.programmingLanguages.forEach(skill => {
+          if (typeof skill === 'object' && skill.lang) {
+            skills.push(skill.lang);
+          } else if (typeof skill === 'string') {
+            skills.push(skill);
+          }
+        });
+      }
+      if (window.resumeData.skills.frameworksLibraries && Array.isArray(window.resumeData.skills.frameworksLibraries)) {
+        window.resumeData.skills.frameworksLibraries.forEach(skill => {
+          if (typeof skill === 'object' && skill.name) {
+            skills.push(skill.name);
+          } else if (typeof skill === 'string') {
+            skills.push(skill);
+          }
+        });
+      }
+      if (window.resumeData.skills.technicalITSkills && Array.isArray(window.resumeData.skills.technicalITSkills)) {
+        window.resumeData.skills.technicalITSkills.forEach(skill => {
+          if (typeof skill === 'object' && skill.skill) {
+            skills.push(skill.skill);
+          } else if (typeof skill === 'string') {
+            skills.push(skill);
+          }
+        });
+      }
     }
-    return skills.length > 0 ? skills : ['Learning', 'Problem-solving', 'Communication'];
+    return skills.length > 0 ? skills : ['Python', 'JavaScript', 'React', 'Node.js', 'Problem-solving', 'Communication'];
   }
 
   function getResumeExperienceLevel() { return 1; }
@@ -461,29 +484,52 @@
     const qa = window.resumeData;
     const qLower = question.toLowerCase();
     
+    // Helper to get specific certifications details
+    const getCertByKeyword = (keyword) => {
+      if (!qa.certifications) return 'various technical certifications';
+      const matching = qa.certifications.find(c => c.desc && c.desc.toLowerCase().includes(keyword.toLowerCase()));
+      return matching ? `${matching.title} (${matching.desc})` : `certifications in ${keyword}`;
+    };
+    
+    // Helper to get specific event details
+    const getRecentEvent = () => {
+      if (qa.events && qa.events.length > 0) {
+        const evt = qa.events[0];
+        return `${evt.title} where I ${evt.desc}`;
+      }
+      return 'various industry events';
+    };
+    
+    // Helper to format skills with proficiency
+    const getSkillsSummary = () => {
+      if (!qa.skills || !qa.skills.programmingLanguages) return 'multiple technologies';
+      const advanced = qa.skills.programmingLanguages.filter(l => l.proficiency === 'Advanced');
+      return advanced.map(l => `${l.lang} (${l.useCases})`).slice(0, 3).join(', ');
+    };
+    
     const answers = {
       experience: [
-        `I've gained practical experience through my ${qa.education.degree} program at ${qa.education.school}, with a focus on ${qa.education.capstone}. I've participated in ${qa.events.length} tech events and workshops, which have provided hands-on exposure to industry practices. My ${qa.certifications.length} certifications demonstrate my commitment to continuous learning.`,
+        `I've gained practical experience through my ${qa.education.degree} at ${qa.education.school}. My capstone project, "${qa.education.capstone}", involved implementing AI-driven solutions with spatial indexing systems. I've participated in multiple tech events including ${qa.events[0]?.title}, which provided hands-on exposure to modern development practices. I've undertaken ${getCertByKeyword('AI')} to strengthen my expertise.`,
       ],
       technical: [
-        `I have experience with multiple technologies and frameworks. Through my ${qa.education.degree} coursework and ${qa.certifications.length} certifications, I've developed strong technical foundations. My capstone project "${qa.education.capstone}" required implementing complex solutions, and I continue building these skills through industry events and certifications.`,
+        `I'm proficient in multiple technologies including ${getSkillsSummary()}. My capstone project "${qa.education.capstone}" required building systems with machine learning and decision support components. I've completed ${getCertByKeyword('modern web')} and gained practical experience through events like ${qa.events[1]?.title}. I focus on writing clean, scalable code following design patterns and SOLID principles.`,
       ],
       learning: [
-        `I'm passionate about continuous learning. My ${qa.certifications.length} certifications demonstrate my commitment to skill development. I stay updated through tech events like ${qa.events.slice(0, 2).map(e => e.title).join(' and ')}, documentation, and hands-on projects. When facing new technologies, I approach them systematically - studying fundamentals, building projects, and learning from community best practices.`,
+        `I'm deeply committed to continuous learning. I've undertaken ${getCertByKeyword('AI')} and ${getCertByKeyword('Cybersecurity')} to broaden my technical foundation. I actively participate in events like ${getRecentEvent()}. My approach is systematic: I study fundamentals, work through hands-on projects, engage with community best practices, and implement what I learn immediately. This has allowed me to master diverse tech stacks rapidly.`,
       ],
       motivation: [
-        `I'm genuinely excited about this opportunity because it aligns with my passion for technology and growth. My track record speaks for itself - I've earned ${qa.certifications.length} certifications and actively participated in ${qa.events.length} tech events. I'm motivated to apply my skills in a professional environment while continuing to develop my expertise.`,
+        `I'm genuinely excited about this role because it aligns with my passion for building impactful technology. I've invested significantly in my growth - completing certifications in ${getCertByKeyword('AI')} and ${getCertByKeyword('Automation')}. I've led projects like my capstone on ${qa.education.capstone.split(':')[0]}, participated in competitive hackathons, and consistently maintained the President's List. I'm eager to contribute meaningfully while continuing to advance my expertise in modern development practices.`,
       ],
       teamwork: [
-        `I believe effective collaboration is essential. Through my ${qa.education.degree} program and participation in ${qa.events.length} tech events, I've learned to communicate clearly and work productively with diverse team members. I'm affiliated with ${qa.affiliations.slice(0, 2).join(' and ')} which has enhanced my collaborative skills. I'm comfortable both contributing individual work and supporting teammates.`,
+        `I believe collaboration is key to success. Through my role as ${qa.affiliations[0]?.role} in ${qa.affiliations[0]?.organization}, I've developed strong team leadership and communication skills. I've worked with diverse teams on projects ranging from ${qa.events[2]?.title} to my capstone leveraging IoT and AI. I'm comfortable in pair programming sessions, conducting code reviews, and supporting teammates. I'm also open to feedback and actively seek opportunities to help others grow.`,
       ]
     };
     
     let answerType = 'experience';
-    if (/(technical|technology|programming|framework|language)/.test(qLower)) answerType = 'technical';
-    if (/(learn|training|skill|new|approach)/.test(qLower)) answerType = 'learning';
-    if (/(interest|motivation|excit|passion|why)/.test(qLower)) answerType = 'motivation';
-    if (/(team|collaborate|work|difficult)/.test(qLower)) answerType = 'teamwork';
+    if (/(technical|technology|programming|framework|language|code)/.test(qLower)) answerType = 'technical';
+    if (/(learn|training|skill|new|approach|growth|development)/.test(qLower)) answerType = 'learning';
+    if (/(interest|motivation|excit|passion|why|interested)/.test(qLower)) answerType = 'motivation';
+    if (/(team|collaborate|work|difficult|conflict|people)/.test(qLower)) answerType = 'teamwork';
     
     return answers[answerType][0];
   }
