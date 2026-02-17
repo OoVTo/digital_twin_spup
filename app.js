@@ -180,39 +180,44 @@
 
   // Match calculation functions (from interview_simulator.html)
   function calculateMatchScore(jobDetails) {
-    const resumeSkills = extractResumeSkills();
-    const jobSkillsList = parseJobSkills(jobDetails);
-    let skillMatches = 0;
-    
-    for (let jobSkill of jobSkillsList) {
-      const jobSkillLower = jobSkill.toLowerCase();
-      for (let resumeSkill of resumeSkills) {
-        const resumeSkillLower = resumeSkill.toLowerCase();
-        if (jobSkillLower === resumeSkillLower || 
-            jobSkillLower.includes(resumeSkillLower) || 
-            resumeSkillLower.includes(jobSkillLower)) {
-          skillMatches++;
-          break;
+    try {
+      const resumeSkills = extractResumeSkills();
+      const jobSkillsList = parseJobSkills(jobDetails);
+      let skillMatches = 0;
+      
+      for (let jobSkill of jobSkillsList) {
+        const jobSkillLower = jobSkill.toLowerCase();
+        for (let resumeSkill of resumeSkills) {
+          const resumeSkillLower = resumeSkill.toLowerCase();
+          if (jobSkillLower === resumeSkillLower || 
+              jobSkillLower.includes(resumeSkillLower) || 
+              resumeSkillLower.includes(jobSkillLower)) {
+            skillMatches++;
+            break;
+          }
         }
       }
+
+      let score = 0;
+      const skillScore = jobSkillsList.length > 0 ? (skillMatches / jobSkillsList.length) * 100 : 50;
+      score += skillScore * 0.5;
+
+      const resumeLevel = getResumeExperienceLevel();
+      const jobLevel = getJobExperienceLevel(jobDetails);
+      const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
+      score += levelAlignment * 0.25;
+
+      const certRelevance = evaluateCertificateRelevance(jobDetails);
+      score += certRelevance * 0.15;
+
+      const projectRelevance = evaluateProjectExperience(jobDetails);
+      score += projectRelevance * 0.1;
+
+      return Math.min(Math.max(Math.round(score), 15), 92);
+    } catch (error) {
+      console.error('Error calculating match score:', error);
+      return 65; // Fallback score
     }
-
-    let score = 0;
-    const skillScore = jobSkillsList.length > 0 ? (skillMatches / jobSkillsList.length) * 100 : 50;
-    score += skillScore * 0.5;
-
-    const resumeLevel = getResumeExperienceLevel();
-    const jobLevel = getJobExperienceLevel(jobDetails);
-    const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
-    score += levelAlignment * 0.25;
-
-    const certRelevance = evaluateCertificateRelevance(jobDetails);
-    score += certRelevance * 0.15;
-
-    const projectRelevance = evaluateProjectExperience(jobDetails);
-    score += projectRelevance * 0.1;
-
-    return Math.min(Math.max(Math.round(score), 15), 92);
   }
 
   function parseJobSkills(jobDetails) {
@@ -304,12 +309,16 @@
     const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
     let relevantCerts = 0;
     window.resumeData.certifications.forEach(cert => {
-      const certLower = cert.toLowerCase();
-      if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && certLower.includes('ai')) relevantCerts++;
-      else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && (certLower.includes('sveltekit') || certLower.includes('framework'))) relevantCerts++;
-      else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && certLower.includes('fintech')) relevantCerts++;
-      else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && certLower.includes('automation')) relevantCerts++;
-      else if ((jobTitle.includes('cybersecurity') || jobSkills.includes('security')) && certLower.includes('cyber')) relevantCerts++;
+      // Handle both object format (new) and string format (legacy)
+      const certName = typeof cert === 'object' ? (cert.title || cert.desc || '').toLowerCase() : cert.toLowerCase();
+      const certDescription = typeof cert === 'object' ? (cert.desc || '').toLowerCase() : cert.toLowerCase();
+      const certCombined = (certName + ' ' + certDescription).toLowerCase();
+      
+      if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && certCombined.includes('ai')) relevantCerts++;
+      else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && (certCombined.includes('sveltekit') || certCombined.includes('framework'))) relevantCerts++;
+      else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && certCombined.includes('fintech')) relevantCerts++;
+      else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && certCombined.includes('automation')) relevantCerts++;
+      else if ((jobTitle.includes('cybersecurity') || jobSkills.includes('security')) && certCombined.includes('cyber')) relevantCerts++;
     });
     const totalCerts = window.resumeData.certifications.length || 32;
     return Math.min(0.5 + (relevantCerts / totalCerts) * 0.5, 1);
@@ -481,81 +490,114 @@
   }
 
   function generateAnswerFromResume(question) {
-    const qa = window.resumeData;
-    const qLower = question.toLowerCase();
-    
-    // Helper to get specific certifications details
-    const getCertByKeyword = (keyword) => {
-      if (!qa.certifications) return 'various technical certifications';
-      const matching = qa.certifications.find(c => c.desc && c.desc.toLowerCase().includes(keyword.toLowerCase()));
-      return matching ? `${matching.title} (${matching.desc})` : `certifications in ${keyword}`;
-    };
-    
-    // Helper to get specific event details
-    const getRecentEvent = () => {
-      if (qa.events && qa.events.length > 0) {
-        const evt = qa.events[0];
-        return `${evt.title} where I ${evt.desc}`;
-      }
-      return 'various industry events';
-    };
-    
-    // Helper to format skills with proficiency
-    const getSkillsSummary = () => {
-      if (!qa.skills || !qa.skills.programmingLanguages) return 'multiple technologies';
-      const advanced = qa.skills.programmingLanguages.filter(l => l.proficiency === 'Advanced');
-      return advanced.map(l => `${l.lang} (${l.useCases})`).slice(0, 3).join(', ');
-    };
-    
-    const answers = {
-      experience: [
-        `I've gained practical experience through my ${qa.education.degree} at ${qa.education.school}. My capstone project, "${qa.education.capstone}", involved implementing AI-driven solutions with spatial indexing systems. I've participated in multiple tech events including ${qa.events[0]?.title}, which provided hands-on exposure to modern development practices. I've undertaken ${getCertByKeyword('AI')} to strengthen my expertise.`,
-      ],
-      technical: [
-        `I'm proficient in multiple technologies including ${getSkillsSummary()}. My capstone project "${qa.education.capstone}" required building systems with machine learning and decision support components. I've completed ${getCertByKeyword('modern web')} and gained practical experience through events like ${qa.events[1]?.title}. I focus on writing clean, scalable code following design patterns and SOLID principles.`,
-      ],
-      learning: [
-        `I'm deeply committed to continuous learning. I've undertaken ${getCertByKeyword('AI')} and ${getCertByKeyword('Cybersecurity')} to broaden my technical foundation. I actively participate in events like ${getRecentEvent()}. My approach is systematic: I study fundamentals, work through hands-on projects, engage with community best practices, and implement what I learn immediately. This has allowed me to master diverse tech stacks rapidly.`,
-      ],
-      motivation: [
-        `I'm genuinely excited about this role because it aligns with my passion for building impactful technology. I've invested significantly in my growth - completing certifications in ${getCertByKeyword('AI')} and ${getCertByKeyword('Automation')}. I've led projects like my capstone on ${qa.education.capstone.split(':')[0]}, participated in competitive hackathons, and consistently maintained the President's List. I'm eager to contribute meaningfully while continuing to advance my expertise in modern development practices.`,
-      ],
-      teamwork: [
-        `I believe collaboration is key to success. Through my role as ${qa.affiliations[0]?.role} in ${qa.affiliations[0]?.organization}, I've developed strong team leadership and communication skills. I've worked with diverse teams on projects ranging from ${qa.events[2]?.title} to my capstone leveraging IoT and AI. I'm comfortable in pair programming sessions, conducting code reviews, and supporting teammates. I'm also open to feedback and actively seek opportunities to help others grow.`,
-      ]
-    };
-    
-    let answerType = 'experience';
-    if (/(technical|technology|programming|framework|language|code)/.test(qLower)) answerType = 'technical';
-    if (/(learn|training|skill|new|approach|growth|development)/.test(qLower)) answerType = 'learning';
-    if (/(interest|motivation|excit|passion|why|interested)/.test(qLower)) answerType = 'motivation';
-    if (/(team|collaborate|work|difficult|conflict|people)/.test(qLower)) answerType = 'teamwork';
-    
-    return answers[answerType][0];
+    try {
+      const qa = window.resumeData;
+      const qLower = question.toLowerCase();
+      
+      // Helper to get specific certifications details
+      const getCertByKeyword = (keyword) => {
+        if (!qa.certifications || !Array.isArray(qa.certifications)) return 'various technical certifications';
+        const matching = qa.certifications.find(c => {
+          if (typeof c === 'object' && c.desc) {
+            return c.desc.toLowerCase().includes(keyword.toLowerCase());
+          }
+          return false;
+        });
+        return matching ? `${matching.title} (${matching.desc})` : `certifications in ${keyword}`;
+      };
+      
+      // Helper to get specific event details
+      const getRecentEvent = () => {
+        if (qa.events && qa.events.length > 0) {
+          const evt = qa.events[0];
+          return `${evt.title} where I ${evt.desc || 'contributed to the experience'}`;
+        }
+        return 'various industry events';
+      };
+      
+      // Helper to format skills with proficiency
+      const getSkillsSummary = () => {
+        if (!qa.skills || !qa.skills.programmingLanguages) return 'multiple technologies';
+        const languages = Array.isArray(qa.skills.programmingLanguages) ? qa.skills.programmingLanguages : [];
+        const advanced = languages.filter(l => typeof l === 'object' && l.proficiency === 'Advanced');
+        return advanced.map(l => `${l.lang} (${l.useCases})`).slice(0, 3).join(', ') || 'multiple technologies';
+      };
+      
+      // Helper to safely get affiliation role
+      const getAffiliationInfo = () => {
+        if (!qa.affiliations || qa.affiliations.length === 0) return 'my professional roles';
+        const affil = qa.affiliations[0];
+        if (typeof affil === 'object' && affil.role) {
+          return `${affil.role} at ${affil.organization}`;
+        }
+        return affil;
+      };
+      
+      // Helper to safely get capstone title
+      const getCapstoneTitle = () => {
+        if (!qa.education.capstone) return 'my capstone project';
+        const parts = qa.education.capstone.split(':');
+        return parts.length > 0 ? parts[0].trim() : qa.education.capstone;
+      };
+      
+      const answers = {
+        experience: [
+          `I've gained practical experience through my ${qa.education.degree} at ${qa.education.school}. My capstone project involved ${getCapstoneTitle()}, implementing AI-driven solutions with spatial indexing. I've participated in multiple tech events including ${qa.events[0]?.title}, which provided hands-on exposure to modern development practices. I've undertaken ${getCertByKeyword('AI')} to strengthen my expertise.`,
+        ],
+        technical: [
+          `I'm proficient in multiple technologies including ${getSkillsSummary()}. My capstone required building systems with machine learning and decision support components. I've completed training in modern development practices and gained hands-on experience through industry events and certifications. I focus on writing clean, scalable code following design patterns and SOLID principles.`,
+        ],
+        learning: [
+          `I'm deeply committed to continuous learning. I've undertaken ${getCertByKeyword('AI')} and ${getCertByKeyword('Cybersecurity')} to broaden my technical foundation. My approach is systematic: I study fundamentals, work through hands-on projects, engage with community best practices, and implement what I learn immediately. This has allowed me to master diverse tech stacks rapidly.`,
+        ],
+        motivation: [
+          `I'm genuinely excited about this role because it aligns with my passion for building impactful technology. I've invested significantly in my growth through formal certifications, competitive hackathons, and maintaining strong academic records. I led the ${getCapstoneTitle()} project and continuously advance my expertise in modern development practices. I'm eager to contribute meaningfully to your team.`,
+        ],
+        teamwork: [
+          `I believe collaboration is key to success. Through ${getAffiliationInfo()}, I've developed strong leadership and communication skills. I've worked with diverse teams on various projects and initiatives. I'm comfortable in pair programming sessions, conducting code reviews, and supporting teammates. I'm also open to feedback and actively seek opportunities to help others grow.`,
+        ]
+      };
+      
+      let answerType = 'experience';
+      if (/(technical|technology|programming|framework|language|code)/.test(qLower)) answerType = 'technical';
+      if (/(learn|training|skill|new|approach|growth|development)/.test(qLower)) answerType = 'learning';
+      if (/(interest|motivation|excit|passion|why|interested)/.test(qLower)) answerType = 'motivation';
+      if (/(team|collaborate|work|difficult|conflict|people)/.test(qLower)) answerType = 'teamwork';
+      
+      return answers[answerType][0];
+    } catch (error) {
+      console.error('Error generating answer:', error);
+      return 'I have extensive experience in technology and continuous learning. I focus on applying my skills to solve real-world problems and collaborating effectively with teams.';
+    }
   }
 
   function calculatePerQuestionScore(jobDetails, questionNum) {
-    const qa = window.resumeData;
-    
-    // Distribute the overall match score across 5 questions
-    // Each question focuses on different aspects
-    const skillScore = evaluateSkillMatch(jobDetails) * 0.5;
-    const levelScore = calculateLevelAlignment(getResumeExperienceLevel(), getJobExperienceLevel(jobDetails)) * 0.25;
-    const certScore = evaluateCertificateRelevance(jobDetails) * 0.15;
-    const projectScore = evaluateProjectExperience(jobDetails) * 0.1;
-    
-    let baseScore = 0;
-    
-    // Distribute scores across questions
-    switch(questionNum) {
-      case 1: baseScore = skillScore * 1.2; break;
-      case 2: baseScore = (skillScore * 0.8) + (projectScore * 1.0); break;
-      case 3: baseScore = (certScore * 1.5) + (projectScore * 0.5); break;
-      case 4: baseScore = (certScore * 1.0) + (skillScore * 0.5); break;
-      case 5: baseScore = (levelScore * 1.5) + (certScore * 0.5); break;
+    try {
+      const qa = window.resumeData;
+      
+      // Distribute the overall match score across 5 questions
+      // Each question focuses on different aspects
+      const skillScore = evaluateSkillMatch(jobDetails) * 0.5;
+      const levelScore = calculateLevelAlignment(getResumeExperienceLevel(), getJobExperienceLevel(jobDetails)) * 0.25;
+      const certScore = evaluateCertificateRelevance(jobDetails) * 0.15;
+      const projectScore = evaluateProjectExperience(jobDetails) * 0.1;
+      
+      let baseScore = 0;
+      
+      // Distribute scores across questions
+      switch(questionNum) {
+        case 1: baseScore = skillScore * 1.2; break;
+        case 2: baseScore = (skillScore * 0.8) + (projectScore * 1.0); break;
+        case 3: baseScore = (certScore * 1.5) + (projectScore * 0.5); break;
+        case 4: baseScore = (certScore * 1.0) + (skillScore * 0.5); break;
+        case 5: baseScore = (levelScore * 1.5) + (certScore * 0.5); break;
+      }
+      
+      return Math.min(Math.max(Math.round(baseScore), 40), 88);
+    } catch (error) {
+      console.error('Error calculating question score:', error);
+      return 65; // Return average score on error
     }
-    
-    return Math.min(Math.max(Math.round(baseScore), 40), 88);
   }
 
   function evaluateSkillMatch(jobDetails) {
@@ -596,6 +638,11 @@
   }
 
   function generateInterviewQuestion(jobDetails, questionNum = 1) {
+    if (!jobDetails) {
+      appendMsg("Error: Unable to load job details. Please refresh and try again.", 'bot');
+      return;
+    }
+    
     if (questionNum > 5) {
       showTyping(false);
       displayInterviewSummary();
@@ -604,19 +651,22 @@
     
     showTyping(true);
     
+    const skillName = jobDetails.skills && jobDetails.skills.length > 0 ? jobDetails.skills[0] : 'the required tech stack';
+    const respName = jobDetails.responsibilities && jobDetails.responsibilities.length > 0 ? jobDetails.responsibilities[0]?.toLowerCase() : 'solve a complex technical problem';
+    
     let questions = [];
     
     if (currentMatchScore >= 70) {
       questions = [
-        `Tell me about your experience with ${jobDetails.skills[0] || 'the required tech stack'}. How have you applied it in real projects?`,
-        `Describe a time when you had to ${jobDetails.responsibilities[0]?.toLowerCase() || 'solve a complex technical problem'}. What was your approach?`,
+        `Tell me about your experience with ${skillName}. How have you applied it in real projects?`,
+        `Describe a time when you had to ${respName}. What was your approach?`,
         "What are your most significant technical accomplishments?",
         "How do you approach learning new technologies?",
         "Tell us about your experience with the technologies mentioned in the job description."
       ];
     } else if (currentMatchScore >= 50) {
       questions = [
-        `Tell us about your experience with ${jobDetails.skills[0] || 'software development'}.`,
+        `Tell us about your experience with ${skillName || 'software development'}.`,
         "What interests you about this role?",
         "How would you approach learning the skills you don't yet have?",
         `Describe a project where you had to learn something new.`,
