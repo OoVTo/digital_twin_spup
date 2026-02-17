@@ -357,7 +357,11 @@
       interviewModePanel.style.display = 'none';
       chatLog.innerHTML = '';
       
-      // Display match score
+      // Display welcome message
+      const welcomeMessage = `Welcome to the ${jobDetails.title} interview! 🎤\n\nCalculating your match score...`;
+      appendMsg(welcomeMessage, 'bot');
+      
+      // Animate match score display over 2 seconds
       const scoreColor = currentMatchScore >= 70 ? '#4CAF50' : currentMatchScore >= 50 ? '#FF9800' : '#f44336';
       const scoreInterpretation = currentMatchScore >= 85 ? "Excellent Match - Strong Candidate" :
                                   currentMatchScore >= 70 ? "Good Match - Well Qualified" :
@@ -365,13 +369,35 @@
                                   currentMatchScore >= 40 ? "Fair Match - Growth Opportunity" :
                                   "Entry Level Match - Stretch Role";
       
-      const matchMessage = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${currentMatchScore}% (${scoreInterpretation})\n\nLet's begin with some interview questions!`;
-      appendMsg(matchMessage, 'bot');
+      // Animate score from 0 to final score
+      const startTime = Date.now();
+      const duration = 2000; // 2 seconds
       
-      // Generate first question
-      setTimeout(() => {
-        generateInterviewQuestion(jobDetails);
-      }, 1500);
+      const animateScore = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const animatedScore = Math.floor(currentMatchScore * progress);
+        
+        // Update the last message with animated score
+        const lastMsg = chatLog.lastChild;
+        if (lastMsg) {
+          lastMsg.textContent = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${animatedScore}% 🔄`;
+        }
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateScore);
+        } else {
+          // Animation complete, show final message with interpretation
+          lastMsg.textContent = `Welcome to the ${jobDetails.title} interview! 🎤\n\n📊 Your Match Score: ${currentMatchScore}% (${scoreInterpretation})\n\nLet's begin with some interview questions!`;
+          
+          // Generate first question
+          setTimeout(() => {
+            generateInterviewQuestion(jobDetails);
+          }, 1000);
+        }
+      };
+      
+      requestAnimationFrame(animateScore);
     } catch (error) {
       appendMsg("Error loading job details. Please try again.", 'bot');
       console.error("Error:", error);
