@@ -181,39 +181,18 @@
   // Match calculation functions (from interview_simulator.html)
   function calculateMatchScore(jobDetails) {
     try {
-      const resumeSkills = extractResumeSkills();
-      const jobSkillsList = parseJobSkills(jobDetails);
-      let skillMatches = 0;
+      // Calculate individual component scores (all on 0-100 scale)
+      const skillScore = evaluateSkillMatch(jobDetails);
+      const levelScore = evaluateExperienceLevelAlignment(jobDetails);
+      const certScore = evaluateCertificateRelevance(jobDetails) * 100; // Convert 0-1 to 0-100
+      const projectScore = evaluateProjectExperience(jobDetails) * 100; // Convert 0-1 to 0-100
+      const educationScore = evaluateEducationRelevance(jobDetails);
       
-      for (let jobSkill of jobSkillsList) {
-        const jobSkillLower = jobSkill.toLowerCase();
-        for (let resumeSkill of resumeSkills) {
-          const resumeSkillLower = resumeSkill.toLowerCase();
-          if (jobSkillLower === resumeSkillLower || 
-              jobSkillLower.includes(resumeSkillLower) || 
-              resumeSkillLower.includes(jobSkillLower)) {
-            skillMatches++;
-            break;
-          }
-        }
-      }
-
-      let score = 0;
-      const skillScore = jobSkillsList.length > 0 ? (skillMatches / jobSkillsList.length) * 100 : 50;
-      score += skillScore * 0.5;
-
-      const resumeLevel = getResumeExperienceLevel();
-      const jobLevel = getJobExperienceLevel(jobDetails);
-      const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
-      score += levelAlignment * 0.25;
-
-      const certRelevance = evaluateCertificateRelevance(jobDetails);
-      score += certRelevance * 0.15;
-
-      const projectRelevance = evaluateProjectExperience(jobDetails);
-      score += projectRelevance * 0.1;
-
-      return Math.min(Math.max(Math.round(score), 15), 92);
+      // Calculate average of all scores
+      const averageScore = (skillScore + levelScore + certScore + projectScore + educationScore) / 5;
+      
+      // Clamp between 15 and 92
+      return Math.min(Math.max(Math.round(averageScore), 15), 92);
     } catch (error) {
       console.error('Error calculating match score:', error);
       return 65; // Fallback score
@@ -277,71 +256,144 @@
     return skills.length > 0 ? skills : ['Python', 'JavaScript', 'React', 'Node.js', 'Problem-solving', 'Communication'];
   }
 
-  function getResumeExperienceLevel() { return 1; }
+  function getResumeExperienceLevel() {
+    // Student with capstone project and internships - estimate as 1-2 years
+    return 2;
+  }
 
   function getJobExperienceLevel(jobDetails) {
     const experienceText = (jobDetails.experience || []).join(' ').toLowerCase();
     const titleLower = (jobDetails.title || '').toLowerCase();
-    if (titleLower.includes('junior') || titleLower.includes('entry')) return 1;
-    else if (titleLower.includes('mid') || titleLower.includes('senior')) return 5;
-    else if (titleLower.includes('lead') || titleLower.includes('principal')) return 7;
-    if (experienceText.includes('0-1') || experienceText.includes('entry')) return 1;
-    else if (experienceText.includes('1-2') || experienceText.includes('2-3')) return 2;
-    else if (experienceText.includes('3-5') || experienceText.includes('3+') || experienceText.includes('4+')) return 4;
-    else if (experienceText.includes('5+') || experienceText.includes('5-7')) return 5;
-    else if (experienceText.includes('7+') || experienceText.includes('10+')) return 7;
+    
+    // Check title first
+    if (titleLower.includes('principal') || titleLower.includes('architect')) return 8;
+    if (titleLower.includes('lead') || titleLower.includes('staff')) return 6;
+    if (titleLower.includes('senior')) return 5;
+    if (titleLower.includes('mid-level') || titleLower.includes('mid level')) return 3;
+    if (titleLower.includes('junior') || titleLower.includes('entry') || titleLower.includes('graduate')) return 1;
+    
+    // Check experience text
+    if (experienceText.includes('10+') || experienceText.includes('10+ years')) return 8;
+    if (experienceText.includes('7+') || experienceText.includes('7-10')) return 6;
+    if (experienceText.includes('5+') || experienceText.includes('5-7')) return 5;
+    if (experienceText.includes('3-5') || experienceText.includes('3 to 5')) return 4;
+    if (experienceText.includes('2-3') || experienceText.includes('2 to 3')) return 3;
+    if (experienceText.includes('1-2') || experienceText.includes('0-1') || experienceText.includes('entry')) return 1;
+    
+    // Default to mid-level
     return 3;
   }
 
-  function calculateLevelAlignment(resumeLevel, jobLevel) {
+  function evaluateExperienceLevelAlignment(jobDetails) {
+    const resumeLevel = getResumeExperienceLevel();
+    const jobLevel = getJobExperienceLevel(jobDetails);
     const difference = Math.abs(resumeLevel - jobLevel);
-    if (difference === 0) return 100;
-    else if (difference === 1) return 80;
-    else if (difference === 2) return 60;
-    else if (difference >= 3 && resumeLevel < jobLevel) return 40;
-    else if (difference >= 3 && resumeLevel > jobLevel) return 70;
+    
+    // Return 0-100 score based on alignment
+    if (difference === 0) return 100;        // Perfect match
+    else if (difference === 1) return 85;    // Very close
+    else if (difference === 2) return 70;    // Close enough
+    else if (difference === 3) return 55;    // Moderate gap
+    else if (difference >= 4 && resumeLevel < jobLevel) return 40; // Underqualified
+    else if (difference >= 4) return 65;     // Overqualified (still good)
     return 50;
   }
 
   function evaluateCertificateRelevance(jobDetails) {
-    if (!window.resumeData || !window.resumeData.certifications) return 0.5;
+    if (!window.resumeData || !window.resumeData.certifications) return 0.3;
     const jobTitle = (jobDetails.title || '').toLowerCase();
     const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
-    let relevantCerts = 0;
+    const jobResponsibilities = (jobDetails.responsibilities || []).map(r => r.toLowerCase()).join(' ');
+    const jobExperience = (jobDetails.experience || []).map(e => e.toLowerCase()).join(' ');
+    const jobDescription = (jobTitle + ' ' + jobSkills + ' ' + jobResponsibilities + ' ' + jobExperience).toLowerCase();
+    
+    let exactRelevantCerts = 0;
+    let partialRelevantCerts = 0;
+    
     window.resumeData.certifications.forEach(cert => {
       // Handle both object format (new) and string format (legacy)
       const certName = typeof cert === 'object' ? (cert.title || cert.desc || '').toLowerCase() : cert.toLowerCase();
       const certDescription = typeof cert === 'object' ? (cert.desc || '').toLowerCase() : cert.toLowerCase();
-      const certCombined = (certName + ' ' + certDescription).toLowerCase();
+      const certCombined = (certName + ' ' + certDescription);
       
-      if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && certCombined.includes('ai')) relevantCerts++;
-      else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && (certCombined.includes('sveltekit') || certCombined.includes('framework'))) relevantCerts++;
-      else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && certCombined.includes('fintech')) relevantCerts++;
-      else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && certCombined.includes('automation')) relevantCerts++;
-      else if ((jobTitle.includes('cybersecurity') || jobSkills.includes('security')) && certCombined.includes('cyber')) relevantCerts++;
+      // Check for exact matches on key terms
+      const keywords = ['ai', 'machine learning', 'cybersecurity', 'cloud', 'devops', 'frontend', 'backend', 'react', 'node', 'fullstack', 'fintech', 'automation', 'docker', 'kubernetes'];
+      keywords.forEach(keyword => {
+        if (jobDescription.includes(keyword) && certCombined.toLowerCase().includes(keyword)) {
+          exactRelevantCerts++;
+        }
+      });
+      
+      // Check for partial relevance (appearance in job description)
+      if (jobDescription.includes('training') || jobDescription.includes('certification')) {
+        partialRelevantCerts += 0.3;
+      }
     });
+    
     const totalCerts = window.resumeData.certifications.length || 32;
-    return Math.min(0.5 + (relevantCerts / totalCerts) * 0.5, 1);
+    const relevanceScore = Math.min((exactRelevantCerts / totalCerts) + (partialRelevantCerts / totalCerts), 1);
+    return Math.max(relevanceScore, 0.2); // Minimum 0.2 (20%) to show some relevance
   }
 
   function evaluateProjectExperience(jobDetails) {
-    if (!window.resumeData || !window.resumeData.events) return 0.5;
+    if (!window.resumeData || !window.resumeData.events) return 0.4;
     const jobTitle = (jobDetails.title || '').toLowerCase();
     const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
-    let relevantEvents = 0;
+    const jobResponsibilities = (jobDetails.responsibilities || []).map(r => r.toLowerCase()).join(' ');
+    const jobFullDescription = (jobTitle + ' ' + jobSkills + ' ' + jobResponsibilities).toLowerCase();
+    
+    let exactRelevantEvents = 0;
+    let partialRelevantEvents = 0;
+    
     window.resumeData.events.forEach(event => {
-      const eventLower = event.title.toLowerCase();
-      if (eventLower.includes('hackathon')) relevantEvents++;
-      else if ((jobTitle.includes('ai') || jobSkills.includes('ai')) && eventLower.includes('ai')) relevantEvents++;
-      else if ((jobTitle.includes('automation') || jobSkills.includes('automation')) && eventLower.includes('automation')) relevantEvents++;
-      else if ((jobTitle.includes('frontend') || jobSkills.includes('react')) && eventLower.includes('framework')) relevantEvents++;
-      else if ((jobTitle.includes('fintech') || jobSkills.includes('fintech')) && eventLower.includes('fintech')) relevantEvents++;
+      const eventTitle = typeof event === 'object' ? (event.title || '').toLowerCase() : event.toLowerCase();
+      const eventDesc = typeof event === 'object' ? (event.desc || '').toLowerCase() : '';
+      const eventCombined = (eventTitle + ' ' + eventDesc).toLowerCase();
+      
+      // Exact matches
+      const relevantKeywords = ['hackathon', 'competition', 'ai', 'ml', 'machine learning', 'devops', 'frontend', 'backend', 'fullstack', 'react', 'node', 'automation', 'fintech'];
+      relevantKeywords.forEach(keyword => {
+        if (jobFullDescription.includes(keyword) && eventCombined.includes(keyword)) {
+          exactRelevantEvents++;
+        }
+      });
+      
+      // Partial credit for hackathons and competitions
+      if (eventCombined.includes('hackathon') || eventCombined.includes('competition')) {
+        partialRelevantEvents += 0.5;
+      }
+      if (eventCombined.includes('project') || eventCombined.includes('development')) {
+        partialRelevantEvents += 0.3;
+      }
     });
+    
     const totalEvents = window.resumeData.events.length || 21;
-    return Math.min(0.5 + (relevantEvents / totalEvents) * 0.5, 1);
+    const projectScore = Math.min((exactRelevantEvents / totalEvents) + (partialRelevantEvents / totalEvents), 1);
+    return Math.max(projectScore, 0.3); // Minimum 0.3 (30%) for having some project experience
   }
 
-  chatToggle.addEventListener('click', () => { chatPanel.classList.toggle('hidden'); });
+  function evaluateEducationRelevance(jobDetails) {
+    if (!window.resumeData || !window.resumeData.education) return 60; // Base score on 0-100 scale
+    
+    const jobTitle = (jobDetails.title || '').toLowerCase();
+    const jobSkills = (jobDetails.skills || []).map(s => s.toLowerCase()).join(' ');
+    const jobFullDescription = (jobTitle + ' ' + jobSkills).toLowerCase();
+    
+    let educationScore = 50; // Base score
+    
+    // Computer Science or related degree
+    const degree = (window.resumeData.education.degree || '').toLowerCase();
+    if (degree.includes('computer') || degree.includes('information') || degree.includes('engineering') || degree.includes('technology')) {
+      educationScore += 20;
+    }
+    
+    // Capstone project relevance
+    const capstone = (window.resumeData.education.capstone || '').toLowerCase();
+    const relevantCapstoneKeywords = ['ai', 'machine learning', 'automation', 'system', 'application', 'platform', 'framework', 'database', 'api', 'cloud'];
+    const hasRelevantCapstone = relevantCapstoneKeywords.some(kw => capstone.includes(kw) && jobFullDescription.includes(kw));
+    if (hasRelevantCapstone) {
+      educationScore += 15;
+    } else if (capstone.length > 0) {\n      educationScore += 5; // Some credit for having a capstone\n    }\n    \n    return Math.min(educationScore, 100);\n  }\n\n  chatToggle.addEventListener('click', () => { chatPanel.classList.toggle('hidden'); });
   closeChat.addEventListener('click', () => { chatPanel.classList.add('hidden'); });
 
   // Mode switching
@@ -603,20 +655,34 @@
   function evaluateSkillMatch(jobDetails) {
     const resumeSkills = extractResumeSkills();
     const jobSkillsList = parseJobSkills(jobDetails);
-    let skillMatches = 0;
+    
+    if (jobSkillsList.length === 0) return 50; // Default if no skills found
+    
+    let exactMatches = 0;
+    let partialMatches = 0;
     
     for (let jobSkill of jobSkillsList) {
       const jobSkillLower = jobSkill.toLowerCase();
       for (let resumeSkill of resumeSkills) {
         const resumeSkillLower = resumeSkill.toLowerCase();
-        if (jobSkillLower === resumeSkillLower || jobSkillLower.includes(resumeSkillLower) || resumeSkillLower.includes(jobSkillLower)) {
-          skillMatches++;
+        
+        // Exact match
+        if (jobSkillLower === resumeSkillLower) {
+          exactMatches++;
+          break;
+        }
+        // Partial match (one includes the other)
+        else if (jobSkillLower.includes(resumeSkillLower) || resumeSkillLower.includes(jobSkillLower)) {
+          partialMatches += 0.6; // 60% credit for partial match
           break;
         }
       }
     }
     
-    return jobSkillsList.length > 0 ? (skillMatches / jobSkillsList.length) * 100 : 50;
+    const totalScore = exactMatches + partialMatches;
+    const matchPercentage = (totalScore / jobSkillsList.length) * 100;
+    
+    return Math.min(matchPercentage, 100);
   }
 
   function animateTyping(element, text, speed = 20, callback = null) {
