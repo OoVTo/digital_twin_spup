@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MCP Evidence Viewer</title>
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:20px;background:#f7f7fb;color:#111}
+    .card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 6px 18px rgba(20,20,40,0.06);margin-bottom:16px}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0b1020;color:#e6f3ff;padding:12px;border-radius:6px;overflow:auto}
+    h1,h2{margin:0 0 8px 0}
+    .meta{font-size:13px;color:#556}
+    .row{display:flex;gap:12px}
+    .col{flex:1}
+    a{color:#0b66ff}
+  </style>
+</head>
+<body>
+  <h1>MCP Query Evidence</h1>
+  <div class="card">
+    <div class="meta">File: <strong>evidence/mcp_response_20260217_190837.json</strong></div>
+    <div id="ts" class="meta"></div>
+  </div>
+
+  <div class="row">
+    <div class="col card">
+      <h2>Query & Response</h2>
+      <form id="queryForm" style="margin-bottom:12px">
+        <div style="margin-bottom:8px">
+          <textarea id="queryInput" rows="3" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd" placeholder="Enter your query about the resume..."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:13px;color:#556">Top K:</label>
+          <select id="kSelect" style="padding:6px;border-radius:6px;border:1px solid #ddd">
+            <option value="3">3</option>
+            <option value="5" selected>5</option>
+            <option value="10">10</option>
+          </select>
+          <button id="runBtn" type="submit" style="margin-left:auto;padding:8px 12px;background:#0b66ff;color:#fff;border:none;border-radius:6px">Run query</button>
+        </div>
+      </form>
+      <div id="content"></div>
+    </div>
+    <div class="col card">
+      <h2>Quick Links</h2>
+      <ul>
+        <li><a href="/src/mcp-server/server.js" target="_blank">src/mcp-server/server.js</a></li>
+        <li><a href="/.vscode/mcp.json" target="_blank">.vscode/mcp.json</a></li>
+        <li><a href="/scripts/capture_mcp_evidence.ps1" target="_blank">scripts/capture_mcp_evidence.ps1</a></li>
+        <li><a href="/evidence/mcp_response_20260217_190837.json" target="_blank">Raw JSON</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    async function load() {
+      // load saved example evidence (optional)
+      const url = '/evidence/mcp_response_20260217_190837.json';
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const j = await r.json();
+        document.getElementById('ts').textContent = 'Loaded: ' + new Date().toLocaleString();
+        renderResult(j);
+      } catch (err) {
+        // ignore missing example evidence
+        document.getElementById('content').innerHTML = '<pre>Example evidence not available: '+err.message+'</pre>';
+      }
+    }
+
+    function renderResult(j) {
+      const el = document.getElementById('content');
+      el.innerHTML = '';
+      const q = document.createElement('div');
+      q.innerHTML = `<p><strong>Query:</strong> ${escapeHtml(j.query)}</p>`;
+      el.appendChild(q);
+
+      const matches = document.createElement('div');
+      matches.innerHTML = `<h3>Matches (${(j.matches||[]).length})</h3>`;
+      (j.matches||[]).forEach(m => {
+        const d = document.createElement('div');
+        d.style.marginBottom = '8px';
+        d.innerHTML = `<strong>${escapeHtml(m.id)}</strong> — score: ${m.score}<pre>${escapeHtml(m.text)}</pre>`;
+        matches.appendChild(d);
+      });
+      el.appendChild(matches);
+
+      const reply = document.createElement('div');
+      reply.innerHTML = `<h3>Reply</h3><pre>${escapeHtml(j.reply || 'null')}</pre>`;
+      el.appendChild(reply);
+    }
+
+    async function runQuery(query, k) {
+      const runBtn = document.getElementById('runBtn');
+      runBtn.disabled = true;
+      runBtn.textContent = 'Running...';
+      try {
+        const resp = await fetch('/mcp/query', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, k }) });
+        if (!resp.ok) throw new Error('HTTP '+resp.status);
+        const j = await resp.json();
+        document.getElementById('ts').textContent = 'Last query: ' + new Date().toLocaleString();
+        renderResult(j);
+      } catch (err) {
+        document.getElementById('content').innerHTML = '<pre>Query failed: '+err.message+'</pre>';
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run query';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('queryForm');
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const q = document.getElementById('queryInput').value.trim();
+        const k = Number(document.getElementById('kSelect').value || 5);
+        if (!q) return;
+        runQuery(q, k);
+      });
+    });
+    function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;" })[c]); }
+    load();
+  </script>
+</body>
+</html>
