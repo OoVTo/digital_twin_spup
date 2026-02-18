@@ -123,12 +123,66 @@
 
       <!-- Interview Mode Selection (hidden by default) -->
       <div id="interviewModePanel" class="interview-mode-panel" style="display: none;">
-        <div class="interview-job-selector">
-          <label for="jobSelect">Select a job to practice:</label>
-          <select id="jobSelect">
-            <option value="">Choose a position...</option>
-          </select>
-          <button id="startInterviewBtn" type="button" class="interview-start-btn">Start Interview Practice</button>
+        
+        <!-- Interview Type Selection -->
+        <div id="interviewTypeSelection" style="display: block;">
+          <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #ddd;">
+            <label style="font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 8px;">Interview Type</label>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="interview-type-btn active" data-type="automatic" onclick="switchInterviewType('automatic')">
+                📁 Automatic
+              </button>
+              <button type="button" class="interview-type-btn" data-type="custom" onclick="switchInterviewType('custom')">
+                ✍️ Custom
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Automatic Interview Mode -->
+        <div id="automaticInterviewMode" style="display: block;">
+          <div class="interview-job-selector">
+            <label for="jobSelect" style="font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 8px;">Select a job to practice:</label>
+            <select id="jobSelect" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; margin-bottom: 10px;">
+              <option value="">Choose a position...</option>
+            </select>
+            <button id="startInterviewBtn" type="button" class="interview-start-btn">Start Interview Practice</button>
+          </div>
+        </div>
+
+        <!-- Custom Interview Mode -->
+        <div id="customInterviewMode" style="display: none;">
+          <form id="customJobForm" style="display: flex; flex-direction: column; gap: 10px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Job Title</label>
+              <input type="text" id="customJobTitle" placeholder="e.g., Senior Full Stack Developer" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;" required>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Company</label>
+              <input type="text" id="customJobCompany" placeholder="e.g., Tech Startup" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;" required>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Location</label>
+              <input type="text" id="customJobLocation" placeholder="e.g., Remote" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;" required>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">About the Role</label>
+              <textarea id="customJobAbout" placeholder="Brief description..." style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; min-height: 40px; resize: vertical;" required></textarea>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Key Responsibilities (one per line)</label>
+              <textarea id="customJobResponsibilities" placeholder="- Design features&#10;- Lead reviews" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; min-height: 40px; resize: vertical;" required></textarea>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Required Skills (comma-separated)</label>
+              <textarea id="customJobSkills" placeholder="Python, JavaScript, React, Docker" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; min-height: 40px; resize: vertical;" required></textarea>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Experience Requirements</label>
+              <input type="text" id="customJobExperience" placeholder="e.g., 3-5 years" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;" required>
+            </div>
+            <button type="submit" class="interview-start-btn">🚀 Analyze & Start</button>
+          </form>
         </div>
       </div>
     </aside>

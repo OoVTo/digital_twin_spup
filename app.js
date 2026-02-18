@@ -625,6 +625,137 @@
   modeQABtn.addEventListener('click', () => switchMode('qa'));
   modeInterviewBtn.addEventListener('click', () => switchMode('interview'));
 
+  // Switch between automatic and custom interview modes
+  window.switchInterviewType = function(type) {
+    document.querySelectorAll('.interview-type-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-type') === type);
+    });
+    document.getElementById('automaticInterviewMode').style.display = type === 'automatic' ? 'block' : 'none';
+    document.getElementById('customInterviewMode').style.display = type === 'custom' ? 'block' : 'none';
+  };
+
+  // Custom job form handler
+  const customJobForm = document.getElementById('customJobForm');
+  if (customJobForm) {
+    customJobForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const customJob = {
+        title: document.getElementById('customJobTitle').value.trim(),
+        company: document.getElementById('customJobCompany').value.trim(),
+        location: document.getElementById('customJobLocation').value.trim(),
+        about: document.getElementById('customJobAbout').value.trim(),
+        responsibilities: document.getElementById('customJobResponsibilities').value
+          .split('\n')
+          .map(r => r.replace(/^[-•*]\s*/, '').trim())
+          .filter(r => r.length > 0),
+        skills: document.getElementById('customJobSkills').value
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0),
+        experience: document.getElementById('customJobExperience').value.trim()
+      };
+
+      startCustomInterview(customJob);
+    });
+  }
+
+  function startCustomInterview(jobData) {
+    // Reset interview variables
+    interviewQuestionCount = 0;
+    questionScores = [];
+    
+    // Calculate match score
+    currentJobDetails = jobData;
+    currentMatchScore = calculateCustomJobMatch(jobData);
+    
+    // Switch to chat mode
+    chatForm.style.display = 'flex';
+    interviewModePanel.style.display = 'none';
+    chatLog.innerHTML = '';
+    
+    // Display welcome message
+    const welcomeMessage = `Welcome to the ${jobData.title} interview! 🎤\n\nAnalyzing your fit...`;
+    appendMsg(welcomeMessage, 'bot');
+    
+    // Animate score display
+    const scoreColor = currentMatchScore >= 70 ? '#4CAF50' : currentMatchScore >= 50 ? '#FF9800' : '#f44336';
+    const scoreInterpretation = currentMatchScore >= 85 ? "Excellent Match - Strong Candidate" :
+                                currentMatchScore >= 70 ? "Good Match - Well Qualified" :
+                                currentMatchScore >= 55 ? "Moderate Match - Good Foundation" :
+                                currentMatchScore >= 40 ? "Fair Match - Growth Opportunity" :
+                                "Entry Level Match - Growth Opportunity";
+    
+    const startTime = Date.now();
+    const duration = 2000;
+    
+    const animateScore = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const animatedScore = Math.floor(currentMatchScore * progress);
+      
+      const lastMsg = chatLog.lastChild;
+      if (lastMsg) {
+        lastMsg.textContent = `Welcome to the ${jobData.title} interview! 🎤\n\n📊 Your Match Score: ${animatedScore}% 🔄`;
+      }
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateScore);
+      } else {
+        lastMsg.textContent = `Welcome to the ${jobData.title} interview! 🎤\n\n📊 Your Match Score: ${currentMatchScore}% (${scoreInterpretation})\n\nLet's begin with some interview questions!`;
+        setTimeout(() => generateInterviewQuestion(jobData, 1), 1000);
+      }
+    };
+    
+    requestAnimationFrame(animateScore);
+  }
+
+  function calculateCustomJobMatch(jobData) {
+    const resumeSkills = extractResumeSkills();
+    const jobSkills = jobData.skills || [];
+    
+    let skillMatches = 0;
+    jobSkills.forEach(jobSkill => {
+      for (let resumeSkill of resumeSkills) {
+        if (jobSkill.toLowerCase() === resumeSkill.toLowerCase() ||
+            jobSkill.toLowerCase().includes(resumeSkill.toLowerCase()) ||
+            resumeSkill.toLowerCase().includes(jobSkill.toLowerCase())) {
+          skillMatches++;
+          break;
+        }
+      }
+    });
+    
+    let score = 0;
+    const skillScore = jobSkills.length > 0 ? (skillMatches / jobSkills.length) * 100 : 50;
+    score += skillScore * 0.5;
+    
+    const resumeLevel = getResumeExperienceLevel();
+    const jobLevel = getJobExperienceLevelFromText(jobData.experience);
+    const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
+    score += levelAlignment * 0.25;
+    
+    const certRelevance = evaluateCertificateRelevance({ title: jobData.title, skills: jobData.skills });
+    score += certRelevance * 0.15;
+    
+    const projectRelevance = evaluateProjectExperience({ title: jobData.title, skills: jobData.skills });
+    score += projectRelevance * 0.1;
+    
+    return Math.min(Math.max(Math.round(score), 15), 92);
+  }
+
+  function getJobExperienceLevelFromText(experienceText) {
+    const text = experienceText.toLowerCase();
+    if (text.includes('0-1') || text.includes('entry') || text.includes('junior') || text.includes('graduate')) return 1;
+    else if (text.includes('1-2') || text.includes('2-3')) return 2;
+    else if (text.includes('3-5') || text.includes('3+') || text.includes('4+')) return 4;
+    else if (text.includes('5-7') || text.includes('5+')) return 5;
+    else if (text.includes('7+') || text.includes('10+')) return 7;
+    else if (text.includes('senior')) return 5;
+    else if (text.includes('lead') || text.includes('principal') || text.includes('architect')) return 7;
+    return 3;
+  }
+
   // Interview mode handler
   startInterviewBtn.addEventListener('click', async () => {
     const selectedJob = jobSelect.value;

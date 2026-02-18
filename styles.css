@@ -814,6 +814,30 @@ body {
 	font-weight: 700;
 }
 
+.interview-type-btn {
+	flex: 1;
+	padding: 8px 12px;
+	background: white;
+	border: 2px solid var(--border);
+	border-radius: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text);
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.interview-type-btn:hover {
+	border-color: var(--primary);
+	background: #f0f4ff;
+}
+
+.interview-type-btn.active {
+	background: var(--primary);
+	color: white;
+	border-color: var(--primary);
+}
+
 .close-btn {
 	background: transparent;
 	border: none;
