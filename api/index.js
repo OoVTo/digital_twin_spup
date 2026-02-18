@@ -6,7 +6,6 @@ const { Index } = require('@upstash/vector');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..')));
 
 // Initialize Upstash Vector client (if configured)
 let upstashIndex = null;
