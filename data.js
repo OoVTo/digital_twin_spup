@@ -262,35 +262,6 @@ const resumeData = {
       { skill: "Windows Server", proficiency: "Beginner", details: "Active Directory, server administration basics" },
       { skill: "Networking", proficiency: "Intermediate", details: "TCP/IP, DNS, VPNs, network security fundamentals" }
     ],
-    "Testing Q A Tools": [
-      { tool: "Postman", usage: "API testing, collection documentation, automated test suites" },
-      { tool: "Jest", usage: "JavaScript unit testing, snapshot testing, mocking" },
-      { tool: "Pytest", usage: "Python testing framework, fixtures, parametrized tests" },
-      { tool: "REST Assured", usage: "Java REST API testing with BDD approach" },
-      { tool: "SoapUI", usage: "SOAP/REST API testing, load testing" },
-      { tool: "Selenium", usage: "Web UI automation, cross-browser testing" }
-    ],
-    "Web Development Practices": [
-      { practice: "Responsive Design", description: "Mobile-first approach, CSS Grid & Flexbox, media queries for all breakpoints" },
-      { practice: "Web Performance Optimization", description: "Image optimization, lazy loading, code splitting, caching strategies" },
-      { practice: "User Experience (UX) Design", description: "User research, wireframing, usability testing, accessibility considerations" },
-      { practice: "Accessibility (WCAG 2.1)", description: "Semantic HTML, ARIA labels, keyboard navigation, color contrast compliance" },
-      { practice: "SEO Best Practices", description: "Meta tags, semantic markup, sitemap optimization, structured data" }
-    ],
-    "Hardware Tools": [
-      { tool: "Arduino", expertise: "Sensor integration, microcontroller programming, IoT prototyping, BLE beacon configuration" },
-      { tool: "Raspberry Pi", expertise: "Linux-based computing, GPIO control, networking setup, container deployment" }
-    ],
-    "Tools Platforms": [
-      { tool: "Visual Studio Code", usage: "Primary IDE with extensions for debugging, formatting, version control" },
-      { tool: "Eclipse IDE", usage: "Java development environment, enterprise application development" },
-      { tool: "JetBrains IntelliJ", usage: "Advanced Java/Kotlin development with intelligent code analysis" },
-      { tool: "Linux (Ubuntu/Debian)", usage: "Development environment, server administration, command-line scripting" },
-      { tool: "Windows", usage: "Desktop development, enterprise tool usage" },
-      { tool: "Docker", usage: "Containerization, application isolation, deployment consistency" },
-      { tool: "n8n", usage: "Workflow automation, AI-powered business process orchestration" },
-      { tool: "Figma", usage: "UI/UX design, prototyping, collaborative design" }
-    ],
     "Soft Skills": [
       { skill: "Problem-Solving", description: "Analytical approach to technical challenges, creative solution design" },
       { skill: "Communication", description: "Technical documentation, presentation skills, cross-team collaboration" },
