@@ -75,6 +75,30 @@
             border-color: #667eea;
         }
 
+        .mode-btn {
+            padding: 10px 14px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .mode-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
         .main-content {
             display: grid;
             grid-template-rows: auto 1fr;
@@ -354,8 +378,60 @@
 <body>
     <div class="container">
         <div class="sidebar">
-            <h2>📋 Available Positions</h2>
-            <div class="job-list" id="jobList"></div>
+            <div style="margin-bottom: 20px;">
+                <h2 style="margin-bottom: 15px;">🎯 Interview Mode</h2>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="mode-btn active" onclick="switchMode('automatic')" id="modeAutomatic">
+                        📁 Automatic Interview
+                    </button>
+                    <button class="mode-btn" onclick="switchMode('custom')" id="modeCustom">
+                        ✍️ Custom Interview
+                    </button>
+                </div>
+            </div>
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+            
+            <div id="automaticMode">
+                <h2>📋 Available Positions</h2>
+                <div class="job-list" id="jobList"></div>
+            </div>
+
+            <div id="customMode" style="display: none;">
+                <h2>📝 Custom Job Form</h2>
+                <form id="customJobForm" onsubmit="submitCustomJob(event)" style="display: flex; flex-direction: column; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">Job Title</label>
+                        <input type="text" id="customRole" placeholder="e.g., Senior Full Stack Developer" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;" required>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">Company</label>
+                        <input type="text" id="customCompany" placeholder="e.g., Tech Startup Inc." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;" required>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">Location</label>
+                        <input type="text" id="customLocation" placeholder="e.g., Remote / San Francisco" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;" required>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">About the Role</label>
+                        <textarea id="customAbout" placeholder="Brief description of the role..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; min-height: 50px; resize: vertical;" required></textarea>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">Key Responsibilities (one per line)</label>
+                        <textarea id="customResponsibilities" placeholder="- Design and develop features&#10;- Lead code reviews&#10;- Mentor junior developers" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; min-height: 60px; resize: vertical;" required></textarea>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">Required Skills (comma-separated)</label>
+                        <textarea id="customSkills" placeholder="Python, JavaScript, React, Django, PostgreSQL, Docker, AWS" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; min-height: 50px; resize: vertical;" required></textarea>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px;">Experience Requirements</label>
+                        <input type="text" id="customExperience" placeholder="e.g., 3-5 years of experience in web development" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+                        🚀 Analyze Match
+                    </button>
+                </form>
+            </div>
         </div>
 
         <div class="main-content">
@@ -394,6 +470,418 @@
 
         let currentJob = null;
         let jobContents = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderJobList();
+            loadJobContents();
+        });
+
+        function switchMode(mode) {
+            // Update button states
+            document.getElementById('modeAutomatic').classList.toggle('active', mode === 'automatic');
+            document.getElementById('modeCustom').classList.toggle('active', mode === 'custom');
+
+            // Toggle sidebar views
+            document.getElementById('automaticMode').style.display = mode === 'automatic' ? 'block' : 'none';
+            document.getElementById('customMode').style.display = mode === 'custom' ? 'block' : 'none';
+
+            // Reset job selection if switching from automatic
+            if (mode === 'custom') {
+                document.querySelectorAll('.job-item').forEach(item => item.classList.remove('active'));
+                currentJob = null;
+            }
+        }
+
+        function submitCustomJob(event) {
+            event.preventDefault();
+
+            const customJob = {
+                role: document.getElementById('customRole').value.trim(),
+                company: document.getElementById('customCompany').value.trim(),
+                location: document.getElementById('customLocation').value.trim(),
+                about: document.getElementById('customAbout').value.trim(),
+                responsibilities: document.getElementById('customResponsibilities').value
+                    .split('\n')
+                    .map(r => r.replace(/^[-•*]\s*/, '').trim())
+                    .filter(r => r.length > 0),
+                skills: document.getElementById('customSkills').value
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0),
+                experience: document.getElementById('customExperience').value.trim()
+            };
+
+            analyzeCustomJob(customJob);
+        }
+
+        function analyzeCustomJob(jobData) {
+            // Calculate match and display results
+            const matchAnalysis = calculateCustomJobMatch(jobData);
+
+            const jobDisplay = document.getElementById('jobDisplay');
+            jobDisplay.innerHTML = `
+                <div class="job-header">
+                    <div class="job-title">${jobData.role}</div>
+                    <div class="job-company">${jobData.company}</div>
+                    <div class="job-meta">
+                        <div class="meta-item">📍 ${jobData.location}</div>
+                    </div>
+                </div>
+
+                <div class="job-details">
+                    <div class="job-section">
+                        <h3>About the Role</h3>
+                        <p style="color: #555; font-size: 14px; line-height: 1.6;">${jobData.about}</p>
+                    </div>
+                    <div class="job-section">
+                        <h3>Experience Required</h3>
+                        <p style="color: #555; font-size: 14px; line-height: 1.6;">${jobData.experience}</p>
+                    </div>
+                </div>
+
+                <div class="job-details" style="margin-top: 20px;">
+                    <div class="job-section">
+                        <h3>Key Responsibilities</h3>
+                        <ul>
+                            ${jobData.responsibilities.slice(0, 5).map(r => `<li>${r}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="job-section">
+                        <h3>Required Skills</h3>
+                        <ul>
+                            ${jobData.skills.slice(0, 8).map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="startCustomInterview()">
+                        🎤 Start Interview Simulation
+                    </button>
+                </div>
+            `;
+
+            // Store for later use
+            window.currentCustomJob = jobData;
+            window.currentCustomJobAnalysis = matchAnalysis;
+        }
+
+        function calculateCustomJobMatch(jobData) {
+            const resumeSkills = extractResumeSkills();
+            const jobSkills = jobData.skills;
+
+            // Calculate skill matches
+            const skillMatches = [];
+            const missingSkills = [];
+
+            jobSkills.forEach(jobSkill => {
+                let found = false;
+                for (let resumeSkill of resumeSkills) {
+                    if (jobSkill.toLowerCase() === resumeSkill.toLowerCase() ||
+                        jobSkill.toLowerCase().includes(resumeSkill.toLowerCase()) ||
+                        resumeSkill.toLowerCase().includes(jobSkill.toLowerCase())) {
+                        skillMatches.push(jobSkill);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    missingSkills.push(jobSkill);
+                }
+            });
+
+            // Calculate experience level alignment
+            const resumeLevel = getResumeExperienceLevel();
+            const jobLevel = getJobExperienceLevelFromText(jobData.experience);
+            const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
+
+            // Calculate education/cert relevance
+            const certRelevance = calculateCertRelevanceForCustom(jobData);
+
+            // Calculate project relevance
+            const projectRelevance = calculateProjectRelevanceForCustom(jobData);
+
+            // Overall score calculation (weighted)
+            let score = 0;
+            const skillScore = jobSkills.length > 0
+                ? (skillMatches.length / jobSkills.length) * 100
+                : 50;
+
+            score += skillScore * 0.5;        // 50% - skill match
+            score += levelAlignment * 0.25;   // 25% - experience level
+            score += certRelevance * 0.15;    // 15% - certifications
+            score += projectRelevance * 0.1;  // 10% - project experience
+
+            const finalScore = Math.min(Math.max(Math.round(score), 15), 92);
+
+            return {
+                overallScore: finalScore,
+                scoreInterpretation: getScoreInterpretation(finalScore),
+                skillScore: Math.round(skillScore),
+                skilledMatches: skillMatches.length,
+                totalSkills: jobSkills.length,
+                matchedSkills: skillMatches,
+                missingSkills: missingSkills,
+                levelScore: Math.round(levelAlignment),
+                levelAlignment: getAlignmentText(resumeLevel, jobLevel),
+                certScore: Math.round(certRelevance * 100),
+                projectScore: Math.round(projectRelevance * 100),
+                reasons: generateMatchReasons(jobData, skillMatches, missingSkills, levelAlignment, resumeLevel, jobLevel)
+            };
+        }
+
+        function getJobExperienceLevelFromText(experienceText) {
+            const text = experienceText.toLowerCase();
+
+            if (text.includes('0-1') || text.includes('entry') || text.includes('junior') || text.includes('graduate')) {
+                return 1;
+            } else if (text.includes('1-2') || text.includes('2-3')) {
+                return 2;
+            } else if (text.includes('3-5') || text.includes('3+') || text.includes('4+')) {
+                return 4;
+            } else if (text.includes('5-7') || text.includes('5+')) {
+                return 5;
+            } else if (text.includes('7+') || text.includes('10+')) {
+                return 7;
+            } else if (text.includes('senior')) {
+                return 5;
+            } else if (text.includes('lead') || text.includes('principal') || text.includes('architect')) {
+                return 7;
+            }
+
+            return 3; // Default mid-level
+        }
+
+        function calculateCertRelevanceForCustom(jobData) {
+            if (!window.resumeData || !window.resumeData.certifications) {
+                return 0.5;
+            }
+
+            const requiredSkills = jobData.skills.map(s => s.toLowerCase()).join(' ');
+            const jobTitle = jobData.role.toLowerCase();
+            let relevantCerts = 0;
+
+            window.resumeData.certifications.forEach(cert => {
+                const certText = typeof cert === 'string' ? cert : (cert.title || '');
+                const certLower = certText.toLowerCase();
+
+                // Check for skill matches in certifications
+                jobData.skills.forEach(skill => {
+                    if (certLower.includes(skill.toLowerCase())) {
+                        relevantCerts++;
+                    }
+                });
+            });
+
+            const totalCerts = window.resumeData.certifications.length || 32;
+            return Math.min(0.5 + (relevantCerts / totalCerts) * 0.5, 1);
+        }
+
+        function calculateProjectRelevanceForCustom(jobData) {
+            if (!window.resumeData || !window.resumeData.events) {
+                return 0.5;
+            }
+
+            const requiredSkills = jobData.skills.map(s => s.toLowerCase());
+            const jobTitle = jobData.role.toLowerCase();
+            let relevantEvents = 0;
+
+            window.resumeData.events.forEach(event => {
+                const eventTitle = typeof event === 'string' ? event : (event.title || '');
+                const eventLower = eventTitle.toLowerCase();
+
+                // Hackathon experience is always relevant for tech roles
+                if (eventLower.includes('hackathon')) {
+                    relevantEvents += 1.5;
+                } else {
+                    // Check for skill matches
+                    requiredSkills.forEach(skill => {
+                        if (eventLower.includes(skill)) {
+                            relevantEvents++;
+                        }
+                    });
+                }
+            });
+
+            const totalEvents = window.resumeData.events.length || 21;
+            return Math.min(0.5 + (relevantEvents / totalEvents) * 0.5, 1);
+        }
+
+        function getAlignmentText(resumeLevel, jobLevel) {
+            const diff = resumeLevel - jobLevel;
+            if (diff === 0) return 'Perfect Match';
+            if (diff === 1) return 'Slightly Overqualified';
+            if (diff === -1) return 'One Level Below';
+            if (diff > 1) return 'Significantly Overqualified';
+            if (diff < -1) return `${Math.abs(diff)} Levels Below Requirement`;
+            return 'Aligned';
+        }
+
+        function generateMatchReasons(jobData, matchedSkills, missingSkills, levelAlignment, resumeLevel, jobLevel) {
+            const reasons = [];
+
+            // Skill-based reasons
+            if (matchedSkills.length === jobData.skills.length) {
+                reasons.push(`✅ <strong>All required skills present:</strong> You have experience with all ${jobData.skills.length} required skills`);
+            } else if (matchedSkills.length > 0) {
+                reasons.push(`✅ <strong>Strong skill foundation:</strong> You have ${matchedSkills.length}/${jobData.skills.length} required skills (${Math.round((matchedSkills.length/jobData.skills.length)*100)}% match)`);
+                reasons.push(`⚠️ <strong>Skills to develop:</strong> ${missingSkills.slice(0, 3).join(', ')}${missingSkills.length > 3 ? ` and ${missingSkills.length - 3} more` : ''}`);
+            } else {
+                reasons.push(`⚠️ <strong>Skills gap:</strong> Limited overlap with required technologies`);
+            }
+
+            // Experience level reasons
+            if (levelAlignment === 100) {
+                reasons.push(`✅ <strong>Experience level aligned:</strong> Your background matches the seniority level required`);
+            } else if (levelAlignment >= 70) {
+                reasons.push(`✅ <strong>Relevant experience:</strong> Close alignment with required experience level`);
+            } else if (resumeLevel < jobLevel) {
+                const gap = jobLevel - resumeLevel;
+                reasons.push(`⚠️ <strong>Experience gap:</strong> Role requires ${gap} more years of experience`);
+            } else {
+                reasons.push(`✅ <strong>Over-qualified:</strong> Your experience exceeds the role requirements`);
+            }
+
+            // Education/certifications
+            if (window.resumeData.certifications && window.resumeData.certifications.length > 15) {
+                reasons.push(`✅ <strong>Continuous learning:</strong> Strong commitment to professional development with ${window.resumeData.certifications.length} certifications`);
+            }
+
+            // Project experience
+            if (window.resumeData.events && window.resumeData.events.length > 15) {
+                reasons.push(`✅ <strong>Hands-on experience:</strong> Extensive project and hackathon participation demonstrates practical skills`);
+            }
+
+            return reasons;
+        }
+
+        function startCustomInterview() {
+            if (!window.currentCustomJob) return;
+
+            const jobData = window.currentCustomJob;
+            const analysis = window.currentCustomJobAnalysis;
+
+            document.getElementById('interviewJobTitle').textContent = `${jobData.role} Interview Simulation`;
+            document.getElementById('interviewPanel').classList.add('active');
+            document.getElementById('interviewPanel').scrollIntoView({ behavior: 'smooth' });
+
+            renderCustomInterviewPanel(jobData, analysis);
+        }
+
+        function renderCustomInterviewPanel(jobData, analysis) {
+            const questionsContainer = document.getElementById('questionsContainer');
+            const scoreColor = analysis.overallScore >= 70 ? '#4CAF50' : analysis.overallScore >= 50 ? '#FF9800' : '#f44336';
+
+            questionsContainer.innerHTML = `
+                <div class="match-score" style="background: linear-gradient(135deg, ${scoreColor}, ${scoreColor}dd);">
+                    <div class="score-value">${analysis.overallScore}%</div>
+                    <div class="score-label">${analysis.scoreInterpretation}</div>
+                </div>
+
+                <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 15px;">
+                    <div style="font-weight: 600; margin-bottom: 12px; color: #333;">📊 Match Breakdown</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div style="background: white; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Skill Match</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #667eea;">${analysis.skillScore}%</div>
+                            <div style="font-size: 12px; color: #999;">${analysis.skilledMatches}/${analysis.totalSkills} skills</div>
+                        </div>
+                        <div style="background: white; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Experience Level</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #667eea;">${analysis.levelScore}%</div>
+                            <div style="font-size: 12px; color: #999;">${analysis.levelAlignment}</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div style="background: white; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Certifications</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #667eea;">${analysis.certScore}%</div>
+                        </div>
+                        <div style="background: white; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Projects</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #667eea;">${analysis.projectScore}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${analysis.matchedSkills.length > 0 ? `
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #4CAF50;">
+                        <div style="font-weight: 600; margin-bottom: 10px; color: #2e7d32;">✅ Skills You Have</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${analysis.matchedSkills.slice(0, 10).map(s => `
+                                <span style="background: #4CAF50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                    ${s}
+                                </span>
+                            `).join('')}
+                            ${analysis.matchedSkills.length > 10 ? `
+                                <span style="background: #ddd; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                    +${analysis.matchedSkills.length - 10} more
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${analysis.missingSkills.length > 0 ? `
+                    <div style="background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #f44336;">
+                        <div style="font-weight: 600; margin-bottom: 10px; color: #c62828;">⚠️ Skills to Develop</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${analysis.missingSkills.slice(0, 10).map(s => `
+                                <span style="background: #ffcdd2; color: #c62828; padding: 4px 8px; border-radius: 4px; font-size: 12px; border: 1px solid #ef5350;">
+                                    ${s}
+                                </span>
+                            `).join('')}
+                            ${analysis.missingSkills.length > 10 ? `
+                                <span style="background: #ddd; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                    +${analysis.missingSkills.length - 10} more
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ffc107;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #ff9800;">💡 Why This Score?</div>
+                    <ul style="margin: 0; padding-left: 20px; list-style: none;">
+                        ${analysis.reasons.map(reason => `
+                            <li style="margin-bottom: 8px; color: #555; font-size: 14px; line-height: 1.5;">
+                                ${reason}
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #2196F3;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #1565c0;">🎯 Interview Tips</div>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li style="margin-bottom: 8px; color: #555; font-size: 14px;">Focus on projects that demonstrate the required skills</li>
+                        <li style="margin-bottom: 8px; color: #555; font-size: 14px;">Prepare examples of challenges you've overcome</li>
+                        <li style="margin-bottom: 8px; color: #555; font-size: 14px;">Research the company and understand their tech stack</li>
+                        <li style="margin-bottom: 8px; color: #555; font-size: 14px;">Be honest about skill gaps and show willingness to learn</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h3 style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #667eea;">Interview Questions</h3>
+                    ${getLocalQuestionsArray({
+                        title: jobData.role,
+                        skills: jobData.skills,
+                        responsibilities: jobData.responsibilities,
+                        experience: [jobData.experience]
+                    }).map((q, idx) => `
+                        <div class="question-card">
+                            <div class="question-num">Question ${idx + 1}</div>
+                            <div class="question-text">${q.question}</div>
+                            <div class="suggestion">
+                                <strong>What this assesses:</strong> ${q.assessment}<br><br>
+                                <strong>Answer tip:</strong> ${q.tip}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
