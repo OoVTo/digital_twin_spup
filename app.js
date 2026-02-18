@@ -682,37 +682,51 @@
   }
 
   function calculateCustomJobMatch(jobData) {
+    // Comprehensive match calculation based on actual resume data
     const resumeSkills = extractResumeSkills();
     const jobSkills = jobData.skills || [];
     
+    // 1. SKILL MATCH ANALYSIS (50% weight)
     let skillMatches = 0;
+    let partialMatches = 0;
     jobSkills.forEach(jobSkill => {
+      const jobSkillLower = jobSkill.toLowerCase();
       for (let resumeSkill of resumeSkills) {
-        if (jobSkill.toLowerCase() === resumeSkill.toLowerCase() ||
-            jobSkill.toLowerCase().includes(resumeSkill.toLowerCase()) ||
-            resumeSkill.toLowerCase().includes(jobSkill.toLowerCase())) {
+        const resumeSkillLower = resumeSkill.toLowerCase();
+        if (jobSkillLower === resumeSkillLower) {
           skillMatches++;
+          break;
+        } else if (jobSkillLower.includes(resumeSkillLower) || resumeSkillLower.includes(jobSkillLower)) {
+          partialMatches++;
           break;
         }
       }
     });
     
-    let score = 0;
-    const skillScore = jobSkills.length > 0 ? (skillMatches / jobSkills.length) * 100 : 50;
-    score += skillScore * 0.5;
+    const exactSkillScore = jobSkills.length > 0 ? (skillMatches / jobSkills.length) * 100 : 50;
+    const partialSkillScore = jobSkills.length > 0 ? (partialMatches / jobSkills.length) * 100 : 0;
+    const skillScore = (exactSkillScore * 0.7) + (partialSkillScore * 0.3);
     
+    // 2. EXPERIENCE LEVEL (25% weight)
     const resumeLevel = getResumeExperienceLevel();
     const jobLevel = getJobExperienceLevelFromText(jobData.experience);
     const levelAlignment = calculateLevelAlignment(resumeLevel, jobLevel);
-    score += levelAlignment * 0.25;
     
-    const certRelevance = evaluateCertificateRelevance({ title: jobData.title, skills: jobData.skills });
-    score += certRelevance * 0.15;
+    // 3. CERTIFICATIONS (15% weight)
+    const certRelevance = evaluateCertificateRelevance({ title: jobData.title, skills: jobData.skills, responsibilities: jobData.responsibilities });
     
+    // 4. PROJECT EXPERIENCE (10% weight)
     const projectRelevance = evaluateProjectExperience({ title: jobData.title, skills: jobData.skills });
+    
+    // Calculate weighted final score
+    let score = 0;
+    score += skillScore * 0.5;
+    score += levelAlignment * 0.25;
+    score += certRelevance * 0.15;
     score += projectRelevance * 0.1;
     
-    return Math.min(Math.max(Math.round(score), 15), 92);
+    // Ensure realistic range (20-92%)
+    return Math.min(Math.max(Math.round(score), 20), 92);
   }
 
   function getJobExperienceLevelFromText(experienceText) {
@@ -932,31 +946,62 @@
 
   function calculatePerQuestionScore(jobDetails, questionNum) {
     try {
-      const qa = window.resumeData;
-      
-      // Distribute the overall match score across 5 questions
-      // Each question focuses on different aspects
-      const skillScore = evaluateSkillMatch(jobDetails) * 0.5;
-      const levelScore = calculateLevelAlignment(getResumeExperienceLevel(), getJobExperienceLevel(jobDetails)) * 0.25;
-      const certScore = evaluateCertificateRelevance(jobDetails) * 0.15;
-      const projectScore = evaluateProjectExperience(jobDetails) * 0.1;
+      // Get comprehensive match data from actual resume
+      const skillScore = evaluateSkillMatch(jobDetails);
+      const levelScore = calculateLevelAlignment(getResumeExperienceLevel(), getJobExperienceLevel(jobDetails)) * 100;
+      const certScore = evaluateCertificateRelevance(jobDetails) * 100;
+      const projectScore = evaluateProjectExperience(jobDetails) * 100;
+      const educationScore = evaluateEducationMatch(jobDetails) * 100;
       
       let baseScore = 0;
       
-      // Distribute scores across questions
+      // Distribute scores across questions - more nuanced approach
       switch(questionNum) {
-        case 1: baseScore = skillScore * 1.2; break;
-        case 2: baseScore = (skillScore * 0.8) + (projectScore * 1.0); break;
-        case 3: baseScore = (certScore * 1.5) + (projectScore * 0.5); break;
-        case 4: baseScore = (certScore * 1.0) + (skillScore * 0.5); break;
-        case 5: baseScore = (levelScore * 1.5) + (certScore * 0.5); break;
+        case 1: 
+          // Q1: Technical background - focus on skills + education
+          baseScore = (skillScore * 0.6) + (educationScore * 0.4);
+          break;
+        case 2: 
+          // Q2: Interest in role - focus on project experience + skills
+          baseScore = (projectScore * 0.6) + (skillScore * 0.4);
+          break;
+        case 3: 
+          // Q3: Learning approach - focus on certifications + projects
+          baseScore = (certScore * 0.5) + (projectScore * 0.5);
+          break;
+        case 4: 
+          // Q4: Experience with tech stack - focus on skills + certs
+          baseScore = (skillScore * 0.7) + (certScore * 0.3);
+          break;
+        case 5: 
+          // Q5: Overall fit - weighted average of all factors
+          baseScore = (skillScore * 0.4) + (levelScore * 0.2) + (projectScore * 0.2) + (certScore * 0.2);
+          break;
       }
       
-      return Math.min(Math.max(Math.round(baseScore), 40), 88);
+      // Return score between 25-92 for realism
+      return Math.min(Math.max(Math.round(baseScore), 25), 92);
     } catch (error) {
       console.error('Error calculating question score:', error);
-      return 65; // Return average score on error
+      return 60;
     }
+  }
+
+  function evaluateEducationMatch(jobDetails) {
+    if (!window.resumeData || !window.resumeData.education) {
+      return 0.5;
+    }
+    
+    const edu = window.resumeData.education;
+    const jobTitle = (jobDetails.title || '').toLowerCase();
+    
+    // Check if degree is relevant to job
+    const degreeLower = (edu.degree || '').toLowerCase();
+    const degreeMatch = degreeLower.includes('computer science') || 
+                       degreeLower.includes('information technology') ||
+                       degreeLower.includes('software') ? 0.9 : 0.6;
+    
+    return degreeMatch;
   }
 
   function evaluateSkillMatch(jobDetails) {
