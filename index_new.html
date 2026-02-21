@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Digital Twin Resume - Jacinto Gabriel A. Tong">
+    <title>Digital Twin Resume</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles_new.css" />
+</head>
+<body>
+    <!-- Floating Background Elements -->
+    <div class="floating-bg">
+        <div class="float-emoji">💻</div>
+        <div class="float-emoji">🚀</div>
+        <div class="float-emoji">⚡</div>
+        <div class="float-emoji">🎯</div>
+        <div class="float-emoji">🔧</div>
+        <div class="float-emoji">💡</div>
+        <div class="float-emoji">🌐</div>
+        <div class="float-emoji">📱</div>
+        <div class="float-emoji">🏗️</div>
+        <div class="float-emoji">🔐</div>
+        <div class="float-emoji">📊</div>
+        <div class="float-emoji">🎨</div>
+        <div class="float-emoji">⚙️</div>
+        <div class="float-emoji">🧠</div>
+        <div class="float-emoji">📈</div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header" id="header">
+            <div class="header-content">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <nav class="nav-links">
+                    <button class="nav-link active" data-tab="overview">Overview</button>
+                    <button class="nav-link" data-tab="experience">Experience</button>
+                    <button class="nav-link" data-tab="education">Education</button>
+                    <button class="nav-link" data-tab="certifications">Certifications</button>
+                    <button class="nav-link" data-tab="events">Events</button>
+                    <button class="nav-link" data-tab="affiliations">Affiliations</button>
+                </nav>
+                <button class="ai-chat-btn" id="aiChatBtn">🤖 Ask AI</button>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <div class="hero-avatar">
+                    <img src="public/assets/images/TONG, GAB.png" alt="Jacinto Gabriel A. Tong">
+                    <div class="avatar-glow"></div>
+                </div>
+                <div class="hero-text">
+                    <h1>Jacinto Gabriel A. Tong</h1>
+                    <p class="hero-subtitle">BS Information Technology | St. Paul University Philippines</p>
+                    <p class="hero-tagline">Innovating through code • Building with purpose</p>
+                    <div class="hero-cta">
+                        <button class="btn btn-primary" id="exploreBtn">Explore Profile</button>
+                        <button class="btn btn-secondary" id="contactBtn">Get In Touch</button>
+                    </div>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-value" id="certCount">32</span>
+                        <span class="stat-label">Certifications</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="eventCount">21</span>
+                        <span class="stat-label">Events Attended</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">5</span>
+                        <span class="stat-label">Affiliations</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Grid -->
+        <main class="main-grid">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <div class="sidebar-card">
+                    <h3>📍 Location</h3>
+                    <p>Tuguegarao City, Cagayan, Philippines</p>
+                </div>
+                <div class="sidebar-card">
+                    <h3>📧 Contact</h3>
+                    <p>jacintotong@spup.edu.ph</p>
+                </div>
+                <div class="sidebar-card">
+                    <h3>📅 Status</h3>
+                    <p>Open to opportunities</p>
+                </div>
+                <div class="sidebar-card">
+                    <h3>🎓 Education</h3>
+                    <p>St. Paul University Philippines<br><small>2021 - 2025</small></p>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Overview Tab -->
+                <section class="tab-content active" id="overview-tab">
+                    <div class="section-header">
+                        <h2>Overview</h2>
+                        <p>A comprehensive digital representation of Jacinto Gabriel A. Tong</p>
+                    </div>
+
+                    <div class="content-grid">
+                        <div class="card card-large">
+                            <div class="card-icon">👤</div>
+                            <h3>Professional Profile</h3>
+                            <div class="profile-details">
+                                <div class="detail-row">
+                                    <span class="label">Full Name</span>
+                                    <span class="value">Jacinto Gabriel A. Tong</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Degree</span>
+                                    <span class="value">Bachelor of Science in Information Technology</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Institution</span>
+                                    <span class="value">St. Paul University Philippines</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Gender</span>
+                                    <span class="value">Male</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Citizenship</span>
+                                    <span class="value">Filipino</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card card-large">
+                            <div class="card-icon">📊</div>
+                            <h3>Quick Stats</h3>
+                            <div class="stat-grid">
+                                <div class="stat-box">
+                                    <div class="stat-title">Certifications</div>
+                                    <div class="stat-large">32</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-title">Events</div>
+                                    <div class="stat-large">21</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-title">Affiliations</div>
+                                    <div class="stat-large">5</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-title">Skills</div>
+                                    <div class="stat-large">∞</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Experience Tab -->
+                <section class="tab-content" id="experience-tab">
+                    <div class="section-header">
+                        <h2>Experience & Roles</h2>
+                        <p>Professional experience and affiliations</p>
+                    </div>
+                    <div id="experience-content" class="content-grid"></div>
+                </section>
+
+                <!-- Education Tab -->
+                <section class="tab-content" id="education-tab">
+                    <div class="section-header">
+                        <h2>Educational Background</h2>
+                        <p>Academic achievements and milestones</p>
+                    </div>
+                    <div id="education-content" class="content-grid"></div>
+                </section>
+
+                <!-- Certifications Tab -->
+                <section class="tab-content" id="certifications-tab">
+                    <div class="section-header">
+                        <h2>Certifications & Credentials</h2>
+                        <p>Professional certifications and achievements</p>
+                    </div>
+                    <div id="certifications-content" class="cert-grid"></div>
+                </section>
+
+                <!-- Events Tab -->
+                <section class="tab-content" id="events-tab">
+                    <div class="section-header">
+                        <h2>Events & Conferences</h2>
+                        <p>Seminars, workshops, and conferences attended</p>
+                    </div>
+                    <div id="events-content" class="events-grid"></div>
+                </section>
+
+                <!-- Affiliations Tab -->
+                <section class="tab-content" id="affiliations-tab">
+                    <div class="section-header">
+                        <h2>Affiliations & Memberships</h2>
+                        <p>Organizations and community involvement</p>
+                    </div>
+                    <div id="affiliations-content" class="content-grid"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chat Panel -->
+    <div id="chatPanel" class="chat-panel">
+        <div class="chat-header">
+            <h3>🤖 Digital Twin AI Assistant</h3>
+            <button class="close-btn" id="closeChat">&times;</button>
+        </div>
+        <div class="chat-body" id="chatBody"></div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Ask me anything..." >
+            <button id="submitChat">📤</button>
+        </div>
+    </div>
+
+    <!-- Chat Overlay -->
+    <div id="chatOverlay" class="chat-overlay"></div>
+
+    <script src="data.js"></script>
+    <script src="app_new.js"></script>
+</body>
+</html>

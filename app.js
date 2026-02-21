@@ -1174,7 +1174,82 @@
       content += `  Q${i + 1}: ${score}%\n`;
     });
     
-    animateTyping(summaryMsg, content, 12);
+    animateTyping(summaryMsg, content, 12, () => {
+      // Save interview result after animation completes
+      saveInterviewResult(currentJobDetails, questionScores, avgScore);
+    });
+  }
+
+  function saveInterviewResult(jobDetails, scores, avgScore) {
+    try {
+      const interviewRecord = {
+        id: Date.now(),
+        jobTitle: jobDetails?.title || 'Unknown Position',
+        company: jobDetails?.company || 'Unknown Company',
+        date: new Date().toISOString(),
+        scores: scores,
+        averageScore: avgScore
+      };
+
+      // Get existing interviews from localStorage
+      let interviews = [];
+      const stored = localStorage.getItem('interview_history');
+      if (stored) {
+        try {
+          interviews = JSON.parse(stored);
+        } catch (e) {
+          console.error('Error parsing interview history:', e);
+        }
+      }
+
+      // Add new record
+      interviews.push(interviewRecord);
+
+      // Save back to localStorage
+      localStorage.setItem('interview_history', JSON.stringify(interviews));
+      console.log('✅ Interview result saved:', interviewRecord);
+
+      // Send to server for backup
+      fetch('/api/interview-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(interviewRecord)
+      }).catch(err => console.warn('Could not backup interview result:', err));
+    } catch (error) {
+      console.error('Error saving interview result:', error);
+    }
+  }
+
+  function getInterviewHistory() {
+    try {
+      const stored = localStorage.getItem('interview_history');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error retrieving interview history:', error);
+      return [];
+    }
+  }
+
+  function calculateInterviewStats(interviews) {
+    if (!interviews || interviews.length === 0) {
+      return {
+        totalInterviews: 0,
+        averageScore: 0,
+        highestScore: 0,
+        lowestScore: 0
+      };
+    }
+
+    const scores = interviews.map(i => i.averageScore);
+    const total = scores.reduce((a, b) => a + b, 0);
+    const avg = Math.round((total / scores.length) * 10) / 10;
+
+    return {
+      totalInterviews: interviews.length,
+      averageScore: avg,
+      highestScore: Math.max(...scores),
+      lowestScore: Math.min(...scores)
+    };
   }
 
   function appendMsg(text, who='bot'){

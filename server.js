@@ -1,10 +1,34 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const fetch = global.fetch || require('node-fetch');
 const { Index } = require('@upstash/vector');
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Path for storing interview results
+const interviewHistoryFile = path.join(__dirname, '_interview_history.json');
+
+function loadInterviewHistory() {
+  try {
+    if (fs.existsSync(interviewHistoryFile)) {
+      const data = fs.readFileSync(interviewHistoryFile, 'utf8');
+      return JSON.parse(data) || [];
+    }
+  } catch (error) {
+    console.error('Error loading interview history:', error.message);
+  }
+  return [];
+}
+
+function saveInterviewHistory(interviews) {
+  try {
+    fs.writeFileSync(interviewHistoryFile, JSON.stringify(interviews, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Error saving interview history:', error.message);
+  }
+}
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
@@ -397,6 +421,101 @@ Tone: Professional, enthusiastic, authentic, and conversational${resumeContext}`
   if (local) return res.json({ reply: local });
 
   return res.json({ reply: "I couldn't generate a response. Try asking about Jacinto's education, skills, certifications, or events." });
+});
+
+// Serve stats page
+app.get('/stats', (req, res) => {
+  res.sendFile(path.join(__dirname, 'stats.html'));
+});
+
+// API endpoint to get interview statistics
+app.get('/api/stats', (req, res) => {
+  const interviews = loadInterviewHistory();
+
+  if (interviews.length === 0) {
+    return res.json({
+      interviews: [],
+      stats: {
+        totalInterviews: 0,
+        averageScore: 0,
+        highestScore: 0,
+        lowestScore: 0
+      },
+      scoreDistribution: {}
+    });
+  }
+
+  // Calculate statistics
+  const scores = interviews.map(i => i.averageScore);
+  const totalScore = scores.reduce((a, b) => a + b, 0);
+  const avgScore = Math.round((totalScore / scores.length) * 10) / 10;
+  const highestScore = Math.max(...scores);
+  const lowestScore = Math.min(...scores);
+
+  // Calculate score distribution (5 ranges: 0-20, 21-40, 41-60, 61-80, 81-100)
+  const distribution = {
+    '0-20%': 0,
+    '21-40%': 0,
+    '41-60%': 0,
+    '61-80%': 0,
+    '81-100%': 0
+  };
+
+  scores.forEach(score => {
+    if (score <= 20) distribution['0-20%']++;
+    else if (score <= 40) distribution['21-40%']++;
+    else if (score <= 60) distribution['41-60%']++;
+    else if (score <= 80) distribution['61-80%']++;
+    else distribution['81-100%']++;
+  });
+
+  // Sort interviews by score (highest to lowest) for rankings
+  const sortedInterviews = [...interviews].sort((a, b) => b.averageScore - a.averageScore);
+
+  res.json({
+    interviews: sortedInterviews,
+    stats: {
+      totalInterviews: interviews.length,
+      averageScore: avgScore,
+      highestScore,
+      lowestScore
+    },
+    scoreDistribution: distribution
+  });
+});
+
+// API endpoint to save interview result
+app.post('/api/interview-result', (req, res) => {
+  const { jobTitle, company, scores, averageScore, date } = req.body;
+  
+  if (!jobTitle || !scores || averageScore === undefined) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const interviews = loadInterviewHistory();
+    
+    const newRecord = {
+      id: Date.now(),
+      jobTitle,
+      company: company || 'Unknown Company',
+      date: date || new Date().toISOString(),
+      scores,
+      averageScore
+    };
+    
+    interviews.push(newRecord);
+    saveInterviewHistory(interviews);
+
+    res.json({ 
+      success: true,
+      message: 'Interview result recorded',
+      record: newRecord
+    });
+  } catch (error) {
+    console.error('Error saving interview result:', error);
+    res.status(500).json({ error: 'Failed to save interview result' });
+  }
 });
 
 app.listen(port, () => console.log(`Server listening at http://localhost:${port}`));
