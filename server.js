@@ -516,6 +516,182 @@ app.post('/api/interview-result', (req, res) => {
   }
 });
 
+/**
+ * Calculate job match percentage using UPSTASH semantic search
+ * Analyzes skills, experience, certifications, and projects
+ */
+app.post('/api/calculate-job-match', async (req, res) => {
+  const { jobTitle, jobSkills, jobResponsibilities, jobExperience } = req.body || {};
+
+  if (!jobTitle) {
+    return res.status(400).json({ error: 'Missing job title' });
+  }
+
+  try {
+    const resume = require('./data.js').resumeData;
+    
+    // Initialize scores
+    let skillScore = 0;
+    let experienceScore = 0;
+    let certScore = 0;
+    let projectScore = 0;
+
+    // 1. SKILL MATCHING (50% weight) - Use UPSTASH semantic search
+    if (upstashIndex && jobSkills && jobSkills.length > 0) {
+      try {
+        // Query for skills mentioned in the job
+        const skillsQuery = jobSkills.slice(0, 5).join(', ');
+        const skillResults = await upstashIndex.query({
+          data: skillsQuery,
+          topK: 5,
+          includeMetadata: true
+        });
+
+        // Count how many resume skills matched
+        const matchedSkillCount = skillResults.length > 0 ? skillResults.length : 0;
+        const totalSkillsRequired = jobSkills.length;
+        skillScore = totalSkillsRequired > 0 
+          ? Math.min((matchedSkillCount / totalSkillsRequired) * 100, 100)
+          : 50;
+      } catch (err) {
+        console.error('Skill search error:', err.message);
+        // Fallback: simple string matching
+        const resumeSkillsStr = JSON.stringify(resume).toLowerCase();
+        const matchedSkills = jobSkills.filter(skill => 
+          resumeSkillsStr.includes(skill.toLowerCase())
+        ).length;
+        skillScore = (matchedSkills / jobSkills.length) * 100;
+      }
+    } else if (jobSkills && jobSkills.length > 0) {
+      // Fallback without UPSTASH
+      const resumeSkillsStr = JSON.stringify(resume).toLowerCase();
+      const matchedSkills = jobSkills.filter(skill => 
+        resumeSkillsStr.includes(skill.toLowerCase())
+      ).length;
+      skillScore = (matchedSkills / jobSkills.length) * 100;
+    } else {
+      skillScore = 50;
+    }
+
+    // 2. EXPERIENCE LEVEL MATCHING (25% weight)
+    if (jobExperience) {
+      try {
+        if (upstashIndex) {
+          const expResults = await upstashIndex.query({
+            data: `${jobExperience} experience years requirements`,
+            topK: 3,
+            includeMetadata: true
+          });
+          experienceScore = expResults.length > 0 ? 75 : 50;
+        } else {
+          experienceScore = 50;
+        }
+      } catch (err) {
+        console.error('Experience search error:', err.message);
+        experienceScore = 50;
+      }
+    } else {
+      experienceScore = 50;
+    }
+
+    // 3. CERTIFICATION MATCHING (15% weight)
+    if (jobTitle && upstashIndex) {
+      try {
+        const certResults = await upstashIndex.query({
+          data: `${jobTitle} certification qualification`,
+          topK: 3,
+          includeMetadata: true
+        });
+        
+        // Count certifications in resume
+        const relevantCerts = resume.certifications.filter(cert =>
+          cert.toLowerCase().includes(jobTitle.split(' ')[0].toLowerCase()) ||
+          jobTitle.toLowerCase().includes('python') && cert.toLowerCase().includes('python') ||
+          jobTitle.toLowerCase().includes('javascript') && cert.toLowerCase().includes('javascript') ||
+          jobTitle.toLowerCase().includes('aws') && cert.toLowerCase().includes('aws')
+        ).length;
+
+        certScore = Math.min((relevantCerts / 5) * 100, 100);
+      } catch (err) {
+        console.error('Cert search error:', err.message);
+        certScore = 50;
+      }
+    } else {
+      certScore = 50;
+    }
+
+    // 4. PROJECT EXPERIENCE MATCHING (10% weight)
+    if (jobResponsibilities && jobResponsibilities.length > 0 && upstashIndex) {
+      try {
+        const projQuery = jobResponsibilities.slice(0, 2).join(', ');
+        const projResults = await upstashIndex.query({
+          data: projQuery,
+          topK: 3,
+          includeMetadata: true
+        });
+
+        // Count relevant projects/events
+        const relevantProjects = resume.events.filter(event =>
+          jobResponsibilities.some(resp =>
+            event.title.toLowerCase().includes(resp.toLowerCase().split(' ')[0]) ||
+            event.desc?.toLowerCase().includes(resp.toLowerCase().split(' ')[0])
+          )
+        ).length;
+
+        projectScore = Math.min((relevantProjects / 3) * 100, 100);
+      } catch (err) {
+        console.error('Project search error:', err.message);
+        projectScore = 50;
+      }
+    } else {
+      projectScore = 50;
+    }
+
+    // Calculate weighted overall score
+    const overallScore = Math.round(
+      (skillScore * 0.5) +
+      (experienceScore * 0.25) +
+      (certScore * 0.15) +
+      (projectScore * 0.1)
+    );
+
+    // Ensure realistic range (20-92%)
+    const finalScore = Math.min(Math.max(overallScore, 20), 92);
+
+    // Determine interpretation
+    let interpretation = '';
+    if (finalScore >= 80) interpretation = 'Excellent Match - Strong Candidate';
+    else if (finalScore >= 65) interpretation = 'Good Match - Qualified';
+    else if (finalScore >= 50) interpretation = 'Fair Match - Some Qualifications';
+    else interpretation = 'Learning Opportunity - Growth Potential';
+
+    return res.json({
+      overallScore: finalScore,
+      scoreInterpretation: interpretation,
+      breakdown: {
+        skills: { score: Math.round(skillScore), weight: 50 },
+        experience: { score: Math.round(experienceScore), weight: 25 },
+        certifications: { score: Math.round(certScore), weight: 15 },
+        projects: { score: Math.round(projectScore), weight: 10 }
+      },
+      upstashEnabled: !!upstashIndex
+    });
+  } catch (error) {
+    console.error('Job match calculation error:', error);
+    return res.json({
+      overallScore: 50,
+      scoreInterpretation: 'Match calculation pending',
+      breakdown: {
+        skills: { score: 50, weight: 50 },
+        experience: { score: 50, weight: 25 },
+        certifications: { score: 50, weight: 15 },
+        projects: { score: 50, weight: 10 }
+      },
+      upstashEnabled: false
+    });
+  }
+});
+
 app.post('/api/get-resume-context', async (req, res) => {
   const { query } = req.body || {};
   
@@ -524,10 +700,27 @@ app.post('/api/get-resume-context', async (req, res) => {
   }
 
   try {
-    const { context } = await getResumeContextFromUpstash(query, 8);
-    return res.json({
-      context: context || 'Limited resume information available'
-    });
+    // Use UPSTASH semantic search to find relevant resume context
+    if (upstashIndex) {
+      const searchResults = await upstashIndex.query({
+        data: query,
+        topK: 8,
+        includeMetadata: true
+      });
+
+      if (searchResults && searchResults.length > 0) {
+        const contextPieces = searchResults.map(result => {
+          const text = getTextFromId(result.id);
+          return text || 'Resume data';
+        });
+        
+        const context = contextPieces.join(' | ');
+        return res.json({ context: context || 'Limited resume information available' });
+      }
+    }
+    
+    // Fallback if UPSTASH not available
+    return res.json({ context: 'Limited resume information available' });
   } catch (error) {
     console.error('Error fetching resume context:', error);
     return res.json({ context: 'Limited resume information available' });

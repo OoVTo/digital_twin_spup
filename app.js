@@ -628,7 +628,7 @@
   // Custom job form handler
   const customJobForm = document.getElementById('customJobForm');
   if (customJobForm) {
-    customJobForm.addEventListener('submit', (e) => {
+    customJobForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const customJob = {
@@ -647,18 +647,37 @@
         experience: document.getElementById('customJobExperience').value.trim()
       };
 
-      startCustomInterview(customJob);
+      // Fetch job match from backend UPSTASH
+      try {
+        const matchResponse = await fetch('/api/calculate-job-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobTitle: customJob.title,
+            jobSkills: customJob.skills,
+            jobResponsibilities: customJob.responsibilities,
+            jobExperience: customJob.experience
+          })
+        });
+        
+        const matchData = await matchResponse.json();
+        startCustomInterview(customJob, matchData.overallScore);
+      } catch (error) {
+        console.error('Error fetching job match:', error);
+        // Fallback to local calculation
+        startCustomInterview(customJob, calculateCustomJobMatch(customJob));
+      }
     });
   }
 
-  function startCustomInterview(jobData) {
+  function startCustomInterview(jobData, matchScore = null) {
     // Reset interview variables
     interviewQuestionCount = 0;
     questionScores = [];
     
-    // Calculate match score
+    // Use UPSTASH match score or fallback to local calculation
     currentJobDetails = jobData;
-    currentMatchScore = calculateCustomJobMatch(jobData);
+    currentMatchScore = matchScore !== null ? matchScore : calculateCustomJobMatch(jobData);
     
     // Switch to chat mode
     chatForm.style.display = 'flex';
