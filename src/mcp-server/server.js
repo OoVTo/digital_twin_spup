@@ -103,7 +103,7 @@ app.post('/mcp/query', async (req, res) => {
   // Prefer GROQ (if available) for chat completions; fall back to OpenAI only if GROQ not set
   if (process.env.GROQ_API_KEY) {
     try {
-      const system = `You are an assistant that answers questions about Jacinto using the provided resume context.`;
+      const system = `You are an assistant that answers questions about Tashanda using the provided resume context.`;
       const prompt = `${system}\n\nContext:\n${contextText}\n\nQuestion: ${query}`;
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -120,7 +120,7 @@ app.post('/mcp/query', async (req, res) => {
     }
   } else if (process.env.OPENAI_API_KEY) {
     try {
-      const system = `You are an assistant that answers questions about Jacinto using the provided resume context.`;
+      const system = `You are an assistant that answers questions about Tashanda using the provided resume context.`;
       const prompt = `${system}\n\nContext:\n${contextText}\n\nQuestion: ${query}`;
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
