@@ -27,11 +27,15 @@ app.get('/', (req, res) => {
 function localAnswer(message){
   const resume = require('./data.js').resumeData;
   const s = message.toLowerCase();
-  if (/(birth|born|birthplace|birth date|birthday)/.test(s)) return `Jacinto was born on ${resume.personal.birthDate} in ${resume.personal.birthplace}! 🎂`;
-  if (/(email|e-mail|contact)/.test(s)) return `You can reach Jacinto at ${resume.personal.email}. He's also based in ${resume.personal.address}.`;
-  if (/(degree|studying|education|capstone)/.test(s)) return `Jacinto is pursuing a ${resume.education.degree} at ${resume.education.school} (${resume.education.years}). His capstone project is all about "${resume.education.capstone}" - pretty cool stuff! 🚀`;
-  if (/list certifications/.test(s)) return `Check out all of Jacinto's certifications:\n\n${resume.certifications.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
-  if (/list events/.test(s)) return `Jacinto has been to some amazing events and conferences:\n\n${resume.events.map(e=>`📍 ${e.title} — ${e.date}`).join('\n')}`;
+  if (/(birth|born|birthplace|birth date|birthday)/.test(s)) return `Tashanda was born on ${resume.personal.birthDate} in ${resume.personal.birthplace}! 🎂`;
+  if (/(email|e-mail|contact)/.test(s)) return `You can reach Tashanda at ${resume.personal.email}. She's also based in ${resume.personal.address}.`;
+  if (/(degree|studying|education|capstone)/.test(s)) return `Tashanda is pursuing a ${resume.education.degree} at ${resume.education.school} (${resume.education.years}). Her capstone project is all about "${resume.education.capstone}" - pretty cool stuff! 🚀`;
+  if (/list certifications/.test(s)) {
+    const validCerts = resume.certifications.filter(c => c.title && c.title.trim());
+    if (validCerts.length === 0) return `Tashanda doesn't have any certifications currently listed.`;
+    return `Here are Tashanda's certifications:\n\n${validCerts.map((c, i) => `${i + 1}. ${c.title}${c.org ? ` (${c.org})` : ''}${c.date ? ` - ${c.date}` : ''}`).join('\n')}`;
+  }
+  if (/list events/.test(s)) return `Tashanda has been to some amazing events and conferences:\n\n${resume.events.map(e=>`📍 ${e.title} — ${e.date}`).join('\n')}`;
   return null;
 }
 
@@ -58,7 +62,11 @@ function getTextFromId(id) {
   }
   if (category === 'cert') {
     const index = parseInt(key);
-    if (resume.certifications[index]) return `Certification: ${resume.certifications[index]}`;
+    const cert = resume.certifications[index];
+    if (cert && cert.title && cert.title.trim()) {
+      return `Certification: ${cert.title}${cert.org ? ` from ${cert.org}` : ''}${cert.date ? ` (${cert.date})` : ''}`;
+    }
+    return null;
   }
   if (category === 'event') {
     const index = parseInt(key);
@@ -66,9 +74,57 @@ function getTextFromId(id) {
   }
   if (category === 'affiliation') {
     const index = parseInt(key);
-    if (resume.affiliations[index]) return `Affiliation: ${resume.affiliations[index]}`;
+    const aff = resume.affiliations[index];
+    if (aff) {
+      const roleText = typeof aff === 'object' ? `${aff.role} at ${aff.organization}` : aff;
+      return `Affiliation: ${roleText}`;
+    }
+    return null;
   }
-  return null;
+  if (category === 'skill') {
+    // Parse skill_Category_Index format or skill_Index format
+    const parts = id.split('_');
+    if (parts.length >= 3) {
+      const skillCategory = parts.slice(1, -1).join(' ');
+      const skillIndex = parseInt(parts[parts.length - 1]);
+      
+      if (resume.skills && resume.skills[skillCategory]) {
+        const skills = resume.skills[skillCategory];
+        if (Array.isArray(skills) && skills[skillIndex]) {
+          const skill = skills[skillIndex];
+          let skillText = '';
+          if (typeof skill === 'object') {
+            const name = skill.area || skill.lang || skill.name || skill.skill || '';
+            const details = [skill.level, skill.proficiency, skill.details, skill.useCases, skill.examples, skill.description]
+              .filter(d => d)
+              .join('; ');
+            skillText = `${name}${details ? ` (${details})` : ''}`;
+          } else {
+            skillText = skill;
+          }
+          return `Skill: ${skillText}`;
+        }
+      }
+    }
+    return null;
+  }
+  if (category === 'skills') {
+    // Handle category-level skills summary
+    const skillCategory = id.replace('skills_', '');
+    if (resume.skills && resume.skills[skillCategory]) {
+      const skills = resume.skills[skillCategory];
+      if (Array.isArray(skills)) {
+        const skillNames = skills.map(s => {
+          if (typeof s === 'object') {
+            return s.area || s.lang || s.name || s.skill || '';
+          }
+          return s;
+        }).filter(n => n);
+        return `Skills - ${skillCategory}: ${skillNames.join(', ')}`;
+      }
+    }
+    return null;
+  }
 }
 
 /**
@@ -213,19 +269,89 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 
-  const systemPrompt = `You are a friendly and knowledgeable personal AI assistant for Jacinto Gabriel A. Tong. 
+  // Fallback: if no context from Upstash, build comprehensive context from resume data
+  if (!resumeContext) {
+    const contextItems = [];
+    
+    // Add personal info
+    contextItems.push(`Name: ${resume.personal.name}`);
+    contextItems.push(`Education: ${resume.education.degree} at ${resume.education.school} (${resume.education.years})`);
+    contextItems.push(`Capstone: ${resume.education.capstone}`);
+    
+    // Add certifications (only non-empty ones)
+    const validCerts = resume.certifications.filter(c => c.title && c.title.trim());
+    if (validCerts.length > 0) {
+      validCerts.slice(0, 5).forEach(c => {
+        contextItems.push(`Certification: ${c.title}${c.org ? ` from ${c.org}` : ''}${c.date ? ` (${c.date})` : ''}`);
+      });
+    } else {
+      contextItems.push(`Certifications: None currently listed`);
+    }
+    
+    // Add events
+    if (resume.events.length > 0) {
+      resume.events.slice(0, 3).forEach(e => {
+        contextItems.push(`Event: ${e.title} on ${e.date}`);
+      });
+    }
+    
+    // Add affiliations
+    if (resume.affiliations.length > 0) {
+      resume.affiliations.forEach(a => {
+        const roleText = typeof a === 'object' ? `${a.role} at ${a.organization}` : a;
+        contextItems.push(`Affiliation: ${roleText}`);
+      });
+    }
+    
+    // Add skills (ALL of them, properly formatted)
+    if (resume.skills) {
+      Object.entries(resume.skills).forEach(([category, skillList]) => {
+        if (Array.isArray(skillList)) {
+          skillList.forEach(skill => {
+            let skillName = '';
+            let skillDetails = '';
+            if (typeof skill === 'object') {
+              skillName = skill.area || skill.lang || skill.name || skill.skill || '';
+              skillDetails = [skill.level, skill.proficiency, skill.details, skill.useCases, skill.examples, skill.description]
+                .filter(d => d)
+                .join('; ');
+            } else {
+              skillName = skill;
+            }
+            if (skillName) {
+              contextItems.push(`Skill: ${skillName}${skillDetails ? ` (${skillDetails})` : ''}`);
+            }
+          });
+        }
+      });
+    }
+    
+    resumeContext = `\n\nFull Resume Information:\n${contextItems.map((item) => `• ${item}`).join('\n')}`;
+  }
 
-You know Jacinto well! He's an Information Technology student from St. Paul University Philippines with a passion for technology, innovation, and AI. He's actively involved in various tech communities and has participated in numerous events and hackathons. He's creative, driven, and continuously learning.
+  const systemPrompt = `You are a friendly, conversational AI assistant representing Tashanda Chealsy A. Antonio. Your role is to help people learn about Tashanda's background, skills, education, certifications, and experiences.
 
-When answering questions:
-- Speak as if you know Jacinto personally. Use a warm, friendly, and conversational tone
-- Be enthusiastic about his achievements and projects
-- Share details about his education, certifications, events, and affiliations with pride
-- Add personality and genuine warmth to your responses - make them feel conversational, not robotic
-- Use the provided resume context to give accurate, specific answers
-- If Jacinto's been to an event or earned a certificate, share it with enthusiasm!
-- If you don't have information, politely say "I don't have those details about Jacinto, but I'd be happy to help with what I do know!"
-- Keep responses friendly and engaging while being concise${resumeContext}`;
+**IMPORTANT - Data Accuracy:**
+- Only share information that appears in the resume context below
+- Don't make up or invent skills, certifications, or achievements
+- If something isn't covered in the resume, be honest about it
+
+**Tone & Style:**
+- Be warm, friendly, and conversational - like talking to someone who knows Tashanda well
+- Share information naturally, not as a database listing
+- Use casual language when appropriate (e.g., "Tashanda is passionate about..." instead of "According to the resume...")
+- When asked about something not in the resume, acknowledge what areas ARE covered and offer to discuss those instead
+
+**Examples of good responses:**
+- Instead of: "I don't have that information about Tashanda."
+  Use: "That's not something I have details about, but I'd love to tell you about her experience in [related area]!"
+- Instead of: "According to the resume context provided, Tashanda Chealsy A. Antonio has the following certifications:"
+  Use: "Tashanda has earned some great certifications! Here are the ones I know about:"
+- Instead of: "Certification: Certificate of Attendance, JPCS..."
+  Use: "She attended the JPCS Leadership Workshop in December 2025 and got a Certificate of Attendance"
+
+**RESUME CONTEXT - Use this to answer questions:**
+${resumeContext}`;
 
   // Try Ollama first (local, no API key needed)
   try {
@@ -238,7 +364,8 @@ When answering questions:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        stream: false
+        stream: false,
+        temperature: 0.4
       })
     });
     if (resp.ok) {
@@ -266,7 +393,7 @@ When answering questions:
             { role: 'user', content: message }
           ],
           max_tokens: 500,
-          temperature: 0.7
+          temperature: 0.4
         })
       });
       const j = await resp.json();
@@ -296,7 +423,8 @@ When answering questions:
             { role: 'system', content: systemPrompt },
             { role: 'user', content: message }
           ],
-          max_tokens: 500
+          max_tokens: 500,
+          temperature: 0.4
         })
       });
       const j = await resp.json();
