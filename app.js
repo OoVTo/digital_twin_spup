@@ -679,11 +679,126 @@
     interviewModePanel.style.display = 'none';
     chatLog.innerHTML = '';
     
-    // Display welcome message (no initial score animation)
-    const welcomeMessage = `Welcome to the ${jobData.title} interview! 🎤\n\nLet's begin with some interview questions.`;
+    // Display welcome message with match score
+    const welcomeMessage = `Welcome to the ${jobData.title} interview! 🎤\n\nYour match score: **${currentMatchScore}%**\n\nLet's begin with some interview questions.`;
     appendMsg(welcomeMessage, 'bot');
     
-    setTimeout(() => generateInterviewQuestion(jobData, 1), 1000);
+    setTimeout(() => generateInterviewQuestionWithAnswer(jobData, 1), 1500);
+  }
+
+  let resumeContextForInterview = null;
+
+  async function generateInterviewQuestionWithAnswer(jobData, questionNum) {
+    if (questionNum === 1) {
+      // Fetch resume context on first question
+      try {
+        const contextResp = await fetch('/api/get-resume-context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `${jobData.title} ${(jobData.skills || []).slice(0, 2).join(' ')}`
+          })
+        });
+        if (contextResp.ok) {
+          const data = await contextResp.json();
+          resumeContextForInterview = data.context || '';
+        }
+      } catch (e) { }
+    }
+
+    if (questionNum > 5) {
+      // All 5 questions complete - save results
+      const avgScore = Math.round(questionScores.reduce((a, b) => a + b, 0) / questionScores.length);
+      const finalMsg = `Interview Complete! 🎉\n\nPerformance Score: **${avgScore}%**\n\nQuestion Breakdown:\n${questionScores.map((s, i) => `Q${i+1}: ${s}%`).join('\n')}\n\nCombined with your job match of ${currentMatchScore}%, this role is a great fit!`;
+      appendMsg(finalMsg, 'bot');
+      
+      // Save to stats
+      await saveInterviewResult(jobData, questionScores, avgScore);
+      return;
+    }
+    
+    // Generate varied, specific questions
+    const questions = [
+      `Describe your experience with ${(jobData.skills || ['the required technologies'])[0]} and your most significant accomplishment using it.`,
+      `What attracted you to this ${jobData.title} position at ${jobData.company || 'this company'}? What skills do you bring?`,
+      `Tell me about a time you had to learn a new technology quickly to solve a problem. How did you approach it?`,
+      `How would you handle ${(jobData.responsibilities || ['solving complex problems'])[0].toLowerCase()}? Walk me through your approach.`,
+      `What are your career goals, and how does this ${jobData.title} role fit into them?`
+    ];
+    
+    const question = questions[questionNum - 1] || questions[0];
+    
+    appendMsg(`**Q${questionNum}:** ${question}`, 'bot');
+    showTyping(true);
+    
+    // Generate answer after delay
+    setTimeout(async () => {
+      showTyping(false);
+      try {
+        const answerResp = await fetch('/api/generate-interview-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: question,
+            jobTitle: jobData.title,
+            jobSkills: jobData.skills,
+            resumeContext: resumeContextForInterview || `Candidate applying for ${jobData.title} role with skills in ${(jobData.skills || []).join(', ')}`
+          })
+        });
+        
+        const answerData = await answerResp.json();
+        appendMsg(answerData.answer, 'user');
+        
+        setTimeout(() => {
+          const baseScore = currentMatchScore;
+          const variance = Math.floor(Math.random() * 20) - 10;
+          const qScore = Math.max(20, Math.min(100, baseScore + variance));
+          questionScores.push(qScore);
+          
+          const scoreMsg = document.createElement('div');
+          scoreMsg.className = 'msg bot';
+          scoreMsg.style.background = '#e3f2fd';
+          scoreMsg.style.borderLeft = '4px solid #2563eb';
+          scoreMsg.style.color = '#1e40af';
+          scoreMsg.style.fontWeight = 'bold';
+          scoreMsg.style.textAlign = 'center';
+          scoreMsg.textContent = `Q${questionNum} Match: ${qScore}%`;
+          chatLog.appendChild(scoreMsg);
+          chatLog.scrollTop = chatLog.scrollHeight;
+          
+          setTimeout(() => generateInterviewQuestionWithAnswer(jobData, questionNum + 1), 1200);
+        }, 500);
+      } catch (e) {
+        console.error('Error:', e);
+        const fallbackAnswer = `Based on my experience with ${(jobData.skills || ['relevant technologies'])[0]}, I believe I can effectively contribute to this ${jobData.title} role.`;
+        appendMsg(fallbackAnswer, 'user');
+        
+        setTimeout(() => {
+          questionScores.push(currentMatchScore);
+          generateInterviewQuestionWithAnswer(jobData, questionNum + 1);
+        }, 800);
+      }
+    }, 1500);
+  }
+
+  async function saveInterviewResult(jobData, scores, avgScore) {
+    try {
+      await fetch('/api/save-interview-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: jobData.title,
+          company: jobData.company || 'Custom',
+          date: new Date().toISOString(),
+          scores: scores,
+          averageScore: avgScore,
+          matchScore: currentMatchScore,
+          isCustom: true
+        })
+      });
+    } catch (e) {
+      console.error('Error saving interview result:', e);
+    }
   }
 
   function calculateCustomJobMatch(jobData) {

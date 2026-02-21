@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const fetch = global.fetch || require('node-fetch');
 const { Index } = require('@upstash/vector');
+const { generateInterviewAnswer } = require('./answer-generator');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -512,6 +513,102 @@ app.post('/api/interview-result', (req, res) => {
   } catch (error) {
     console.error('Error saving interview result:', error);
     res.status(500).json({ error: 'Failed to save interview result' });
+  }
+});
+
+app.post('/api/get-resume-context', async (req, res) => {
+  const { query } = req.body || {};
+  
+  if (!query) {
+    return res.json({ context: 'Limited resume information' });
+  }
+
+  try {
+    const { context } = await getResumeContextFromUpstash(query, 8);
+    return res.json({
+      context: context || 'Limited resume information available'
+    });
+  } catch (error) {
+    console.error('Error fetching resume context:', error);
+    return res.json({ context: 'Limited resume information available' });
+  }
+});
+
+app.post('/api/save-interview-result', async (req, res) => {
+  const { jobTitle, company, date, scores, averageScore, matchScore, isCustom } = req.body || {};
+  
+  if (!jobTitle) {
+    return res.status(400).json({ error: 'missing jobTitle' });
+  }
+
+  try {
+    const interviewRecord = {
+      id: Date.now(),
+      jobTitle,
+      company: company || 'N/A',
+      date: date || new Date().toISOString(),
+      scores,
+      averageScore,
+      matchScore,
+      isCustom: isCustom || false
+    };
+
+    // Get existing interviews from storage
+    let interviews = [];
+    try {
+      if (fs.existsSync(interviewHistoryFile)) {
+        const data = fs.readFileSync(interviewHistoryFile, 'utf8');
+        interviews = JSON.parse(data) || [];
+      }
+    } catch (e) {
+      console.error('Error reading interview history:', e.message);
+    }
+
+    // Add new record
+    interviews.push(interviewRecord);
+
+    // Save back
+    try {
+      fs.writeFileSync(interviewHistoryFile, JSON.stringify(interviews, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Error writing interview history:', e.message);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Interview result saved',
+      record: interviewRecord
+    });
+  } catch (error) {
+    console.error('Error saving interview result:', error);
+    return res.status(500).json({ error: 'Failed to save interview result' });
+  }
+});
+
+app.post('/api/generate-interview-answer', async (req, res) => {
+  const { question, jobTitle, jobSkills, resumeContext } = req.body || {};
+
+  if (!question) {
+    return res.status(400).json({ error: 'missing question' });
+  }
+
+  try {
+    const answer = await generateInterviewAnswer(question, jobTitle, jobSkills, resumeContext, {
+      GROQ_API_KEY: process.env.GROQ_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+    });
+
+    return res.json({
+      answer,
+      source: 'ai'
+    });
+  } catch (error) {
+    console.error('Answer generation error:', error);
+    return res.json({
+      answer: `Based on my background, I can effectively address this question and contribute to the team.`,
+      source: 'fallback',
+      error: error.message
+    });
   }
 });
 
