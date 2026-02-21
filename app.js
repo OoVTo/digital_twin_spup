@@ -204,23 +204,9 @@
         const field2 = document.createElement('div'); field2.className = 'education-field';
         field2.innerHTML = `<span class="education-label">Date</span><div class="education-value">${ev.date}</div>`;
         
-        const field3 = document.createElement('div'); field3.className = 'education-field';
-        if (ev.img) {
-          const img = document.createElement('img');
-          img.src = ev.img;
-          img.alt = ev.title;
-          img.style.width = '100%';
-          img.style.height = '140px';
-          img.style.objectFit = 'cover';
-          img.style.borderRadius = '8px';
-          img.style.marginTop = '4px';
-          field3.appendChild(img);
-        }
-        
         card.appendChild(header);
         card.appendChild(field1);
         card.appendChild(field2);
-        card.appendChild(field3);
         contentEl.appendChild(card);
       });
     }
