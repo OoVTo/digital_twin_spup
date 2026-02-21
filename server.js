@@ -515,4 +515,192 @@ app.post('/api/interview-result', (req, res) => {
   }
 });
 
+// API endpoint to generate custom job interview questions
+app.post('/api/generate-custom-questions', async (req, res) => {
+  const { jobTitle, skills, responsibilities } = req.body;
+  
+  if (!jobTitle) {
+    return res.status(400).json({ error: 'Missing job title' });
+  }
+
+  const systemPrompt = `You are an expert technical interviewer. Generate 5 specific, challenging interview questions for a ${jobTitle} position.
+  
+Job Requirements:
+- Title: ${jobTitle}
+- Key Skills: ${skills && skills.length > 0 ? skills.join(', ') : 'not specified'}
+- Responsibilities: ${responsibilities && responsibilities.length > 0 ? responsibilities.join(', ') : 'not specified'}
+
+Generate exactly 5 interview questions that:
+1. Are specific to this job title and requirements
+2. Test relevant technical knowledge
+3. Vary in difficulty and topic
+4. Are open-ended to reveal depth of knowledge
+
+Return as a JSON array of strings, nothing else.`;
+
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Generate interview questions for: ${jobTitle}` }
+          ],
+          max_tokens: 800,
+          temperature: 0.8
+        })
+      });
+
+      clearTimeout(timeoutId);
+
+      const j = await resp.json();
+      if (j?.choices?.[0]?.message?.content) {
+        try {
+          const content = j.choices[0].message.content;
+          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            const questions = JSON.parse(jsonMatch[0]);
+            return res.json({ questions });
+          }
+        } catch (parseErr) {
+          console.warn('Error parsing questions:', parseErr);
+        }
+      }
+    } catch (err) {
+      console.warn('Error generating questions:', err.message);
+    }
+  }
+
+  // Fallback: Generic questions if GROQ fails
+  const fallbackQuestions = [
+    `What experience do you have with the key technologies required for this ${jobTitle} position?`,
+    `Describe a project where you successfully handled ${responsibilities && responsibilities.length > 0 ? responsibilities[0] : 'a complex technical challenge'}.`,
+    `How do you approach learning new tools and frameworks required for ${jobTitle} roles?`,
+    `Tell us about your most significant technical achievement and why it matters for this position.`,
+    `How would you handle the most challenging aspect of the ${jobTitle} role?`
+  ];
+
+  res.json({ questions: fallbackQuestions });
+});
+
+// API endpoint to score custom interview answers
+app.post('/api/score-interview-answer', async (req, res) => {
+  const { question, answer, jobTitle, skills } = req.body;
+  
+  if (!question || !answer) {
+    return res.status(400).json({ error: 'Missing question or answer' });
+  }
+
+  let resumeContext = '';
+  
+  // Search Upstash for resume context
+  if (upstashIndex) {
+    try {
+      const searchResults = await upstashIndex.query({
+        data: `${question} ${answer}`,
+        topK: 5,
+        includeMetadata: true
+      });
+
+      if (searchResults && searchResults.length > 0) {
+        const contextItems = searchResults
+          .map(r => getTextFromId(r.id))
+          .filter(t => t);
+        
+        if (contextItems.length > 0) {
+          resumeContext = `Resume Context: ${contextItems.slice(0, 2).join('; ')}`;
+        }
+      }
+    } catch (err) {
+      console.warn('Upstash search error:', err.message);
+    }
+  }
+
+  const scoringPrompt = `You are an expert technical interviewer scoring interview responses. Score this response on scale 0-100 based on:
+- Relevance to the job (${jobTitle})
+- Technical depth and accuracy
+- Evidence of real experience
+- Communication clarity
+- Problem-solving approach
+
+Job Skills: ${skills && skills.length > 0 ? skills.join(', ') : 'General'}
+${resumeContext}
+
+Question: ${question}
+Answer: ${answer}
+
+Respond with ONLY a JSON object: {"score": <0-100>, "reasoning": "<brief reason>"}`;
+
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: scoringPrompt },
+            { role: 'user', content: 'Score this interview response' }
+          ],
+          max_tokens: 200,
+          temperature: 0.5
+        })
+      });
+
+      clearTimeout(timeoutId);
+
+      const j = await resp.json();
+      if (j?.choices?.[0]?.message?.content) {
+        try {
+          const content = j.choices[0].message.content;
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const result = JSON.parse(jsonMatch[0]);
+            return res.json({ 
+              score: Math.min(Math.max(result.score, 20), 95),
+              reasoning: result.reasoning 
+            });
+          }
+        } catch (parseErr) {
+          console.warn('Error parsing score:', parseErr);
+        }
+      }
+    } catch (err) {
+      console.warn('Error scoring answer:', err.message);
+    }
+  }
+
+  // Fallback scoring based on answer length and keyword matching
+  const keywordScore = (skills && skills.length > 0) 
+    ? Math.min(skills.filter(s => answer.toLowerCase().includes(s.toLowerCase())).length * 10, 40)
+    : 20;
+  
+  const lengthBonus = answer.length > 150 ? 15 : answer.length > 80 ? 8 : 0;
+  const detailBonus = (answer.match(/\b(implemented|created|developed|designed|solved|managed)\b/gi) || []).length * 5;
+  
+  const fallbackScore = Math.min(keywordScore + lengthBonus + detailBonus + Math.random() * 20, 95);
+
+  res.json({ 
+    score: Math.max(Math.round(fallbackScore), 20),
+    reasoning: 'Scored based on answer quality, keyword matching, and detail level'
+  });
+});
+
 app.listen(port, () => console.log(`Server listening at http://localhost:${port}`));

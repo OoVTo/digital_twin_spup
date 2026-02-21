@@ -670,6 +670,9 @@
     interviewQuestionCount = 0;
     questionScores = [];
     
+    // Mark as custom interview
+    jobData.custom = true;
+    
     // Calculate match score
     currentJobDetails = jobData;
     currentMatchScore = calculateCustomJobMatch(jobData);
@@ -679,8 +682,8 @@
     interviewModePanel.style.display = 'none';
     chatLog.innerHTML = '';
     
-    // Display welcome message (no initial score animation)
-    const welcomeMessage = `Welcome to the ${jobData.title} interview! 🎤\n\nLet's begin with some interview questions.`;
+    // Display welcome message with match score
+    const welcomeMessage = `Welcome to the ${jobData.title} interview! 🎤\n\nInitial Match Score: ${currentMatchScore}%\n\nLet's begin with some interview questions.`;
     appendMsg(welcomeMessage, 'bot');
     
     setTimeout(() => generateInterviewQuestion(jobData, 1), 1000);
@@ -867,19 +870,31 @@
     return parsed;
   }
 
-  function generateAnswerFromResume(question) {
+  function generateAnswerFromResume(question, jobDetails) {
     // Generate conversational, varied interview answers that address the specific question
+    // Tailored based on job details if provided (custom interview)
     const qa = window.resumeData || {};
     const qLower = (question || '').toLowerCase();
+    const isCustomInterview = jobDetails && jobDetails.custom;
+    const jobSkills = (jobDetails && jobDetails.skills) || [];
+    const jobTitle = (jobDetails && jobDetails.title) || '';
 
     const answers = [];
 
-    // Experience with technologies
+    // Experience with technologies - emphasize matching skills
     if (/(experience with|worked with|familiar with|proficiency|expertise in)/i.test(question)) {
       const langs = qa.skills?.programmingLanguages || [];
       const frameworks = qa.skills?.frameworksLibraries || [];
       const langNames = langs.slice(0, 4).map(s => typeof s === 'string' ? s : s.lang || s.name || '').filter(Boolean).join(', ');
       const frameworkNames = frameworks.slice(0, 3).map(s => typeof s === 'string' ? s : s.name || '').filter(Boolean).join(', ');
+      
+      if (isCustomInterview && jobSkills.length > 0) {
+        const matchingSkills = jobSkills.filter(js => 
+          langNames.toLowerCase().includes(js.toLowerCase()) || 
+          frameworkNames.toLowerCase().includes(js.toLowerCase())
+        );
+        answers.push(`I have hands-on experience with ${langNames || 'multiple programming languages'}. For this ${jobTitle} role, I particularly focus on ${matchingSkills.length > 0 ? matchingSkills.join(', ') : jobSkills.slice(0, 2).join(', ')} which align with your requirements. I'm comfortable picking up new technologies when needed.`);
+      }
       
       answers.push(`I have hands-on experience with ${langNames || 'multiple programming languages'}. I've worked extensively with frameworks like ${frameworkNames || 'modern web frameworks'} in various projects. I'm comfortable picking up new technologies when needed and have a track record of learning quickly.`);
       answers.push(`I work primarily with ${langNames || 'Python, JavaScript, and similar languages'}. Beyond just knowing the syntax, I focus on writing clean, maintainable code. I've applied these technologies in real projects and actively seek opportunities to expand my toolkit.`);
@@ -889,6 +904,10 @@
     if (/(tell me about|background|experience|who are you)/i.test(question)) {
       answers.push(`I'm currently pursuing a ${qa.education?.degree} at ${qa.education?.school}. I have a strong foundation in software development with hands-on experience through my capstone project on beacon-based item tracking using AI. I've also completed several certifications in modern technologies and actively participate in hackathons and tech communities.`);
       answers.push(`I'm an IT student with a passion for building practical solutions. Beyond academics, I'm experienced in ${qa.skills?.programmingLanguages?.slice(0, 2).map(s => typeof s === 'string' ? s : s.lang || s.name).join(' and ')}, and I've worked on projects combining machine learning with real-world applications. I'm driven by continuous learning and contributing to the tech community.`);
+      
+      if (isCustomInterview) {
+        answers.push(`I'm a ${qa.education?.degree} student at ${qa.education?.school} with a passion for ${jobTitle} work. My background includes practical experience with ${jobSkills.slice(0, 2).join(' and ')}, demonstrated through my capstone project and various technical initiatives. I'm excited about the opportunity to contribute to your team.`);
+      }
     }
 
     // Problem-solving / Technical challenges
@@ -907,6 +926,9 @@
 
     // Interest in role / Motivation
     if (/(interest|why|motivated|why this role|appeal)/i.test(question)) {
+      if (isCustomInterview) {
+        answers.push(`I'm genuinely interested in ${jobTitle} roles because they align with my background and aspirations. Your requirements in ${jobSkills.slice(0, 2).join(' and ')} match skills I've developed through my education and practical projects. I'm excited about the opportunity to apply my knowledge and grow with your team.`);
+      }
       answers.push(`I'm genuinely excited about roles that combine problem-solving with innovation. What attracts me is the opportunity to work on meaningful projects and contribute to a team where I can grow. I'm particularly interested in companies that value continuous learning and have a strong engineering culture.`);
       answers.push(`I'm motivated by solving real-world problems with technology. The opportunity to work on projects that matter and collaborate with talented developers is what drives me. I'm looking for an environment where I can contribute my skills while constantly learning and pushing my boundaries.`);
     }
@@ -1067,8 +1089,98 @@
       displayInterviewSummary();
       return;
     }
-    
+
     showTyping(true);
+    
+    // For custom interviews, fetch job-specific questions
+    if (jobDetails.custom) {
+      fetchCustomQuestions(jobDetails, questionNum);
+    } else {
+      // For automatic interviews, use predefined questions
+      displayQuestionWithStandardFlow(jobDetails, questionNum);
+    }
+  }
+
+  function fetchCustomQuestions(jobDetails, questionNum) {
+    fetch('/api/generate-custom-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobTitle: jobDetails.title,
+        skills: jobDetails.skills,
+        responsibilities: jobDetails.responsibilities
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      const customQuestions = data.questions || [];
+      displayQuestionWithCustomFlow(jobDetails, questionNum, customQuestions);
+    })
+    .catch(err => {
+      console.warn('Error fetching custom questions:', err);
+      displayQuestionWithStandardFlow(jobDetails, questionNum);
+    });
+  }
+
+  function displayQuestionWithCustomFlow(jobDetails, questionNum, questions) {
+    showTyping(false);
+    
+    const question = questions[questionNum - 1] || `Tell me about your experience with ${jobDetails.title}.`;
+    
+    setTimeout(() => {
+      const qMsg = document.createElement('div');
+      qMsg.className = 'msg bot';
+      qMsg.innerHTML = `<strong>Q${questionNum}:</strong> ${question}`;
+      chatLog.appendChild(qMsg);
+      chatLog.scrollTop = chatLog.scrollHeight;
+      
+      setTimeout(() => {
+        // Generate answer from resume data
+        const answer = generateAnswerFromResume(question, jobDetails);
+        const qScore = calculatePerQuestionScore(jobDetails, questionNum);
+        questionScores.push(qScore);
+        
+        const aMsg = createExpandableMsg(answer, 'user', 140);
+        chatLog.appendChild(aMsg);
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+        const previewEl = aMsg.querySelector('.msg-preview') || aMsg;
+        const previewText = (answer.length > 140) ? answer.slice(0, 140).trim() : answer;
+
+        animateTyping(previewEl, previewText, 12, () => {
+          setTimeout(() => {
+            const scoreMsg = document.createElement('div');
+            scoreMsg.className = 'msg bot';
+            scoreMsg.style.background = '#e3f2fd';
+            scoreMsg.style.borderLeft = '4px solid #2563eb';
+            scoreMsg.style.color = '#1e40af';
+            scoreMsg.style.fontWeight = 'bold';
+            scoreMsg.style.textAlign = 'center';
+            scoreMsg.style.marginTop = '8px';
+            chatLog.appendChild(scoreMsg);
+            
+            let displayScore = 0;
+            const scoreInterval = setInterval(() => {
+              displayScore += Math.ceil(qScore / 12);
+              if (displayScore >= qScore) {
+                displayScore = qScore;
+                clearInterval(scoreInterval);
+              }
+              scoreMsg.textContent = `Q${questionNum} Match: ${displayScore}%`;
+              chatLog.scrollTop = chatLog.scrollHeight;
+            }, 50);
+            
+            setTimeout(() => {
+              generateInterviewQuestion(jobDetails, questionNum + 1);
+            }, 1500);
+          }, 300);
+        });
+      }, 800);
+    }, 800);
+  }
+
+  function displayQuestionWithStandardFlow(jobDetails, questionNum) {
+    showTyping(false);
     
     const skillName = jobDetails.skills && jobDetails.skills.length > 0 ? jobDetails.skills[0] : 'the required tech stack';
     const respName = jobDetails.responsibilities && jobDetails.responsibilities.length > 0 ? jobDetails.responsibilities[0]?.toLowerCase() : 'solve a complex technical problem';
@@ -1104,8 +1216,6 @@
     const question = questions[questionNum - 1];
     
     setTimeout(async () => {
-      showTyping(false);
-      
       const qMsg = document.createElement('div');
       qMsg.className = 'msg bot';
       qMsg.innerHTML = `<strong>Q${questionNum}:</strong> ${question}`;
@@ -1113,12 +1223,10 @@
       chatLog.scrollTop = chatLog.scrollHeight;
       
       setTimeout(() => {
-        // Generate answer based on the specific question
-        const answer = generateAnswerFromResume(question);
+        const answer = generateAnswerFromResume(question, jobDetails);
         const qScore = calculatePerQuestionScore(jobDetails, questionNum);
         questionScores.push(qScore);
         
-        // create expandable answer message (show short preview, expand on click)
         const aMsg = createExpandableMsg(answer, 'user', 140);
         chatLog.appendChild(aMsg);
         chatLog.scrollTop = chatLog.scrollHeight;
@@ -1138,7 +1246,6 @@
             scoreMsg.style.marginTop = '8px';
             chatLog.appendChild(scoreMsg);
             
-            // Animate score counter
             let displayScore = 0;
             const scoreInterval = setInterval(() => {
               displayScore += Math.ceil(qScore / 12);
@@ -1157,6 +1264,7 @@
         });
       }, 800);
     }, 800);
+  }
   }
 
   function displayInterviewSummary() {
