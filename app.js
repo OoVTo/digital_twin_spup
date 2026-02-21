@@ -191,24 +191,50 @@
     if (id === 'events') {
       const h = document.createElement('h2'); h.className = 'section-title'; h.textContent = 'Seminars / Workshops / Conferences';
       contentEl.appendChild(h);
-      resume.events.forEach(ev => {
-        const card = document.createElement('div'); card.className = 'education-card';
-        
-        const header = document.createElement('div'); header.className = 'education-header';
-        const title = document.createElement('span'); title.className = 'event-title'; title.textContent = ev.title;
-        header.appendChild(title);
-        
-        const field1 = document.createElement('div'); field1.className = 'education-field';
-        field1.innerHTML = `<span class="education-label">Venue</span><div class="education-value">${ev.venue}</div>`;
-        
-        const field2 = document.createElement('div'); field2.className = 'education-field';
-        field2.innerHTML = `<span class="education-label">Date</span><div class="education-value">${ev.date}</div>`;
-        
-        card.appendChild(header);
-        card.appendChild(field1);
-        card.appendChild(field2);
-        contentEl.appendChild(card);
-      });
+      
+      // Add view toggle buttons
+      const viewToggle = document.createElement('div'); 
+      viewToggle.className = 'view-toggle';
+      
+      const listBtn = document.createElement('button');
+      listBtn.className = 'view-btn active';
+      listBtn.textContent = '📋 List View';
+      listBtn.onclick = () => {
+        switchEventView('list');
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        listBtn.classList.add('active');
+      };
+      
+      const timelineBtn = document.createElement('button');
+      timelineBtn.className = 'view-btn';
+      timelineBtn.textContent = '📍 Timeline View';
+      timelineBtn.onclick = () => {
+        switchEventView('timeline');
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        timelineBtn.classList.add('active');
+      };
+      
+      const calendarBtn = document.createElement('button');
+      calendarBtn.className = 'view-btn';
+      calendarBtn.textContent = '📅 Calendar View';
+      calendarBtn.onclick = () => {
+        switchEventView('calendar');
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        calendarBtn.classList.add('active');
+      };
+      
+      viewToggle.appendChild(listBtn);
+      viewToggle.appendChild(timelineBtn);
+      viewToggle.appendChild(calendarBtn);
+      contentEl.appendChild(viewToggle);
+      
+      // Create container for events
+      const eventsContainer = document.createElement('div');
+      eventsContainer.id = 'eventsContainer';
+      contentEl.appendChild(eventsContainer);
+      
+      // Render default list view
+      renderEventsList(eventsContainer, resume.events);
     }
     if (id === 'skills') {
       const h = document.createElement('h2'); h.className = 'section-title'; h.textContent = 'Skills';
@@ -425,6 +451,240 @@
   let interviewQuestionCount = 0;
   let questionScores = [];
   let currentJobDetails = null;
+
+  // Event rendering functions
+  function renderEventsList(container, events) {
+    container.innerHTML = '';
+    events.forEach(ev => {
+      const card = document.createElement('div');
+      card.className = 'education-card';
+      
+      const header = document.createElement('div');
+      header.className = 'education-header';
+      const title = document.createElement('span');
+      title.className = 'event-title';
+      title.textContent = ev.title;
+      header.appendChild(title);
+      
+      const field1 = document.createElement('div');
+      field1.className = 'education-field';
+      field1.innerHTML = `<span class="education-label">Venue</span><div class="education-value">${ev.venue}</div>`;
+      
+      const field2 = document.createElement('div');
+      field2.className = 'education-field';
+      field2.innerHTML = `<span class="education-label">Date</span><div class="education-value">${ev.date}</div>`;
+      
+      card.appendChild(header);
+      card.appendChild(field1);
+      card.appendChild(field2);
+      container.appendChild(card);
+    });
+  }
+
+  function renderEventsTimeline(container, events) {
+    container.innerHTML = '';
+    const sortedEvents = [...events].sort((a, b) => {
+      const dateA = new Date(a.date.replace(/(\w+)\s+(\d+),\s+(\d+)/, '$3-' + getMonthNumber(a.date) + '-$2'));
+      const dateB = new Date(b.date.replace(/(\w+)\s+(\d+),\s+(\d+)/, '$3-' + getMonthNumber(b.date) + '-$2'));
+      return dateA - dateB;
+    });
+
+    const timeline = document.createElement('div');
+    timeline.className = 'timeline-container';
+
+    sortedEvents.forEach((ev, index) => {
+      const item = document.createElement('div');
+      item.className = 'timeline-item';
+
+      const marker = document.createElement('div');
+      marker.className = 'timeline-marker';
+
+      const dot = document.createElement('div');
+      dot.className = 'timeline-dot';
+      if (index === 0) dot.classList.add('highlight');
+
+      const date = document.createElement('div');
+      date.className = 'timeline-date';
+      date.textContent = ev.date;
+
+      marker.appendChild(dot);
+      marker.appendChild(date);
+
+      const line = document.createElement('div');
+      line.className = 'timeline-line';
+      marker.appendChild(line);
+
+      const content = document.createElement('div');
+      content.className = 'timeline-content';
+
+      const contentTitle = document.createElement('h3');
+      contentTitle.textContent = ev.title;
+
+      const contentVenue = document.createElement('p');
+      contentVenue.textContent = `📍 ${ev.venue}`;
+
+      const contentDate = document.createElement('p');
+      contentDate.textContent = `📅 ${ev.date}`;
+
+      content.appendChild(contentTitle);
+      content.appendChild(contentVenue);
+      content.appendChild(contentDate);
+
+      item.appendChild(marker);
+      item.appendChild(content);
+      timeline.appendChild(item);
+    });
+
+    container.appendChild(timeline);
+  }
+
+  function renderEventsCalendar(container, events) {
+    container.innerHTML = '';
+    const calendarContainer = document.createElement('div');
+    calendarContainer.className = 'calendar-container';
+
+    // Group events by month
+    const eventsByMonth = {};
+    events.forEach(ev => {
+      const monthKey = ev.date.substring(0, ev.date.lastIndexOf(' '));
+      if (!eventsByMonth[monthKey]) {
+        eventsByMonth[monthKey] = [];
+      }
+      eventsByMonth[monthKey].push(ev);
+    });
+
+    // Parse and sort months
+    const sortedMonths = Object.keys(eventsByMonth).sort((a, b) => {
+      const dateA = new Date(a.replace(/(\w+)\s+(\d+),\s+(\d+)/, '$3-' + getMonthNumber(a) + '-$2'));
+      const dateB = new Date(b.replace(/(\w+)\s+(\d+),\s+(\d+)/, '$3-' + getMonthNumber(b) + '-$2'));
+      return dateA - dateB;
+    });
+
+    sortedMonths.slice(0, 6).forEach(monthKey => {
+      const monthEvents = eventsByMonth[monthKey];
+      const firstEvent = monthEvents[0];
+      const dateStr = firstEvent.date;
+      
+      // Parse month and year
+      const parts = dateStr.split(' ');
+      const monthName = parts[0];
+      const year = parts[parts.length - 1];
+      const monthNum = getMonthNumber(monthName);
+      
+      const firstDate = new Date(year, monthNum - 1, 1);
+      const lastDate = new Date(year, monthNum, 0);
+      const daysInMonth = lastDate.getDate();
+      const firstDayOfWeek = firstDate.getDay();
+
+      const monthCard = document.createElement('div');
+      monthCard.className = 'calendar-month';
+
+      const header = document.createElement('div');
+      header.className = 'calendar-header';
+      header.textContent = monthName + ' ' + year;
+      monthCard.appendChild(header);
+
+      const grid = document.createElement('div');
+      grid.className = 'calendar-grid';
+
+      // Day headers
+      const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      dayHeaders.forEach(day => {
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'calendar-day-header';
+        dayHeader.textContent = day;
+        grid.appendChild(dayHeader);
+      });
+
+      // Empty cells for days before month starts
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'calendar-day other-month';
+        grid.appendChild(emptyDay);
+      }
+
+      // Days of month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day';
+        dayCell.textContent = day;
+
+        // Check if any events on this day
+        const dayEvents = monthEvents.filter(ev => {
+          const eventDay = parseInt(ev.date.split(' ')[1], 10);
+          return eventDay === day;
+        });
+
+        if (dayEvents.length > 0) {
+          dayCell.classList.add('has-event');
+          dayCell.style.cursor = 'pointer';
+          dayCell.onclick = () => {
+            alert(`${dayEvents.map(e => e.title).join('\n')}`);
+          };
+        }
+
+        const today = new Date();
+        if (day === today.getDate() && monthNum === today.getMonth() + 1 && year === today.getFullYear().toString()) {
+          dayCell.classList.add('today');
+        }
+
+        grid.appendChild(dayCell);
+      }
+
+      monthCard.appendChild(grid);
+
+      // Events list
+      if (monthEvents.length > 0) {
+        const eventsList = document.createElement('div');
+        eventsList.className = 'calendar-events';
+
+        monthEvents.forEach(ev => {
+          const eventItem = document.createElement('div');
+          eventItem.className = 'calendar-event-item';
+
+          const eventTitle = document.createElement('div');
+          eventTitle.className = 'calendar-event-title';
+          eventTitle.textContent = ev.title;
+
+          const eventVenue = document.createElement('div');
+          eventVenue.className = 'calendar-event-venue';
+          eventVenue.textContent = ev.venue;
+
+          eventItem.appendChild(eventTitle);
+          eventItem.appendChild(eventVenue);
+          eventsList.appendChild(eventItem);
+        });
+
+        monthCard.appendChild(eventsList);
+      }
+
+      calendarContainer.appendChild(monthCard);
+    });
+
+    container.appendChild(calendarContainer);
+  }
+
+  function switchEventView(viewType) {
+    const container = document.getElementById('eventsContainer');
+    if (!container) return;
+    
+    const resume = window.resumeData || {};
+    const events = resume.events || [];
+
+    if (viewType === 'list') {
+      renderEventsList(container, events);
+    } else if (viewType === 'timeline') {
+      renderEventsTimeline(container, events);
+    } else if (viewType === 'calendar') {
+      renderEventsCalendar(container, events);
+    }
+  }
+
+  function getMonthNumber(monthName) {
+    const months = ['january', 'february', 'march', 'april', 'may', 'june', 
+                   'july', 'august', 'september', 'october', 'november', 'december'];
+    return months.indexOf(monthName.toLowerCase()) + 1;
+  }
 
   // Match calculation functions (from interview_simulator.html)
   function calculateMatchScore(jobDetails) {
